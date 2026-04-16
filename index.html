@@ -664,6 +664,29 @@
   .battle-status.active { background: #fff3e0; color: #ff6b35; }
   .battle-status.finished { background: #e8f5e9; color: #43a047; }
 
+  .gps-tracker {
+    background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+    padding: 16px; margin-bottom: 12px; text-align: center;
+  }
+  .gps-tracker.tracking { border-color: #43a047; }
+  .gps-display { font-size: 36px; font-weight: 900; margin: 8px 0; }
+  .gps-sub { font-size: 13px; color: var(--muted); }
+  .gps-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 24px; border-radius: 24px; font-weight: 800; font-size: 14px;
+    border: none; cursor: pointer; margin-top: 10px;
+  }
+  .gps-btn.start { background: #43a047; color: #fff; }
+  .gps-btn.stop { background: #ff4757; color: #fff; }
+  .gps-pulse { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff4757; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .verified-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 11px; font-weight: 800; color: #1e88e5; background: #e3f2fd;
+    padding: 1px 6px; border-radius: 8px; margin-left: 4px;
+  }
+
   .interval-timer {
     position: sticky;
     top: 0;
@@ -900,10 +923,21 @@
 <!-- ============ CARDIO RECORD ============ -->
 <div class="screen" id="cardioScreen">
   <div class="screen-head">
-    <button class="icon-btn" onclick="closeScreen('cardioScreen')">✕</button>
+    <button class="icon-btn" onclick="cancelCardio()">✕</button>
     <div class="title" data-i18n="title_cardio">ランニングを記録</div>
   </div>
   <div class="screen-body">
+    <div class="gps-tracker" id="gpsTracker">
+      <div style="font-weight:800;font-size:13px" data-i18n="gps_title">📍 GPS計測</div>
+      <div class="gps-display" id="gpsDistance">0.00 km</div>
+      <div class="gps-sub" id="gpsTime">00:00</div>
+      <div class="gps-sub" id="gpsPace"></div>
+      <button class="gps-btn start" id="gpsStartBtn" onclick="startGps()" data-i18n="gps_start">📍 GPS計測を開始</button>
+      <button class="gps-btn stop" id="gpsStopBtn" onclick="stopGps()" style="display:none">
+        <span class="gps-pulse"></span> <span data-i18n="gps_stop">計測を停止</span>
+      </button>
+    </div>
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin:-6px 0 10px" data-i18n="gps_or_manual">または手動で入力 ↓</div>
     <div class="card">
       <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="lbl_distance">距離 (km)</div>
       <div class="stepper">
@@ -1315,6 +1349,12 @@ const I18N = {
     t_added: '追加しました',
     custom_cat: 'カスタム',
     t_set_min: 'セットは1つ以上必要です',
+    gps_title: '📍 GPS計測',
+    gps_start: '📍 GPS計測を開始',
+    gps_stop: '計測を停止',
+    gps_or_manual: 'または手動で入力 ↓',
+    gps_no_support: 'このブラウザはGPSに対応していません',
+    gps_verified: 'GPS認証',
     t_dist_req: '距離を入力してください',
     t_what_req: '何をしたか入力してください',
     t_confirm_cancel_rec: '記録を破棄しますか?',
@@ -1501,6 +1541,12 @@ const I18N = {
     t_added: 'Added',
     custom_cat: 'Custom',
     t_set_min: 'At least one set is required',
+    gps_title: '📍 GPS Tracking',
+    gps_start: '📍 Start GPS Tracking',
+    gps_stop: 'Stop Tracking',
+    gps_or_manual: 'or enter manually ↓',
+    gps_no_support: 'GPS is not supported in this browser',
+    gps_verified: 'GPS Verified',
     t_dist_req: 'Please enter a distance',
     t_what_req: 'Please enter what you did',
     t_confirm_cancel_rec: 'Discard this record?',
@@ -1917,6 +1963,7 @@ async function enterApp() {
       distance: w.distance ? Number(w.distance) : null,
       durationMin: w.duration_min ? Number(w.duration_min) : null,
       sets: w.sets || [],
+      gpsVerified: w.gps_verified || false,
       likes: likes.filter(l => l.workout_id === w.id).map(l => l.user_id),
     })),
   };
@@ -2195,7 +2242,7 @@ function renderHistItem(w) {
   return `<div class="hist-item" data-id="${w.id}">
     <div class="hist-head" onclick="toggleHist('${w.id}')">
       <div style="flex:1;min-width:0">
-        <div class="hist-title">${iconFor(w.type)} ${escapeHtml(w.title || '')}</div>
+        <div class="hist-title">${iconFor(w.type)} ${escapeHtml(w.title || '')}${w.gpsVerified ? `<span class="verified-badge">✓ ${t('gps_verified')}</span>` : ''}</div>
         <div class="hist-summary">${escapeHtml(summary)}</div>
       </div>
       ${(w.likes||[]).length ? `<span style="font-size:12px;color:var(--muted)">❤️ ${(w.likes||[]).length}</span>` : ''}
@@ -2306,7 +2353,7 @@ async function renderTimeline(profiles) {
             <span style="font-weight:700;font-size:13px">${escapeHtml(userName)}</span>
             <span style="font-size:11px;color:var(--muted)">${w.date}</span>
           </div>
-          <div style="margin-top:2px">${iconFor(w.type)} ${escapeHtml(w.title || '')}</div>
+          <div style="margin-top:2px">${iconFor(w.type)} ${escapeHtml(w.title || '')}${w.gps_verified ? `<span class="verified-badge">✓ ${t('gps_verified')}</span>` : ''}</div>
           <div style="font-size:12px;color:var(--muted)">${escapeHtml(body)}</div>
         </div>
         ${likeBtn}${likeInfo}
@@ -2418,7 +2465,7 @@ async function showUserDetail(userId) {
       return `<div class="hist-item">
         <div class="hist-head">
           <div style="flex:1;min-width:0">
-            <div>${iconFor(w.type)} ${escapeHtml(w.title||'')}</div>
+            <div>${iconFor(w.type)} ${escapeHtml(w.title||'')}${w.gpsVerified ? `<span class="verified-badge">✓ ${t('gps_verified')}</span>` : ''}</div>
             <div style="font-size:11px;color:var(--muted)">${w.date}</div>
           </div>
           ${likeCount ? `<span style="font-size:12px;color:var(--muted)">❤️ ${likeCount}</span>` : ''}
@@ -3321,13 +3368,114 @@ async function saveRecord() {
 // ===================================================================
 // CARDIO / FREE
 // ===================================================================
+let gpsWatchId = null;
+let gpsPositions = [];
+let gpsStartTime = null;
+let gpsTimerInterval = null;
+let gpsUsed = false;
+
 function startCardio() {
   editingWorkoutId = null;
+  gpsUsed = false;
+  resetGpsDisplay();
   $('cardioDist').value = 3;
   $('cardioTime').value = 20;
   $('cardioNote').value = '';
   $('cardioScreen').classList.add('active');
 }
+
+function resetGpsDisplay() {
+  $('gpsDistance').textContent = '0.00 km';
+  $('gpsTime').textContent = '00:00';
+  $('gpsPace').textContent = '';
+  $('gpsStartBtn').style.display = '';
+  $('gpsStopBtn').style.display = 'none';
+  $('gpsTracker').classList.remove('tracking');
+  gpsPositions = [];
+  gpsStartTime = null;
+  if (gpsTimerInterval) clearInterval(gpsTimerInterval);
+  if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+}
+
+function startGps() {
+  if (!navigator.geolocation) { toast(t('gps_no_support')); return; }
+  gpsPositions = [];
+  gpsStartTime = Date.now();
+  gpsUsed = false;
+  $('gpsStartBtn').style.display = 'none';
+  $('gpsStopBtn').style.display = '';
+  $('gpsTracker').classList.add('tracking');
+
+  gpsTimerInterval = setInterval(updateGpsTimer, 1000);
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (accuracy > 50) return;
+      gpsPositions.push({ lat: latitude, lng: longitude, time: Date.now() });
+      updateGpsDisplay();
+    },
+    (err) => { console.error('GPS error', err); },
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+  );
+}
+
+function stopGps() {
+  if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  if (gpsTimerInterval) { clearInterval(gpsTimerInterval); gpsTimerInterval = null; }
+  $('gpsStopBtn').style.display = 'none';
+  $('gpsTracker').classList.remove('tracking');
+
+  const dist = calcGpsDistance();
+  const elapsed = Math.floor((Date.now() - gpsStartTime) / 60000);
+  if (dist > 0.01) {
+    gpsUsed = true;
+    $('cardioDist').value = dist.toFixed(2);
+    $('cardioTime').value = elapsed || 1;
+  }
+}
+
+function cancelCardio() {
+  resetGpsDisplay();
+  closeScreen('cardioScreen');
+}
+
+function calcGpsDistance() {
+  let total = 0;
+  for (let i = 1; i < gpsPositions.length; i++) {
+    total += haversine(gpsPositions[i - 1], gpsPositions[i]);
+  }
+  return total;
+}
+
+function haversine(a, b) {
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
+function updateGpsDisplay() {
+  const dist = calcGpsDistance();
+  $('gpsDistance').textContent = dist.toFixed(2) + ' km';
+  const elapsed = (Date.now() - gpsStartTime) / 60000;
+  if (dist > 0.01 && elapsed > 0) {
+    const pace = elapsed / dist;
+    const pm = Math.floor(pace);
+    const ps = Math.round((pace - pm) * 60);
+    $('gpsPace').textContent = `⏱ ${pm}:${String(ps).padStart(2,'0')} /km`;
+  }
+}
+
+function updateGpsTimer() {
+  if (!gpsStartTime) return;
+  const sec = Math.floor((Date.now() - gpsStartTime) / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  $('gpsTime').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
 function stepCardio(f, d) {
   const el = f==='dist' ? $('cardioDist') : $('cardioTime');
   el.value = Math.max(0, Number(el.value||0) + d).toFixed(f==='dist'?1:0);
@@ -3344,8 +3492,10 @@ async function saveCardio() {
     distance: dist,
     durationMin: time || null,
     note: $('cardioNote').value.trim(),
+    gpsVerified: gpsUsed,
   };
   await commitWorkout(w);
+  resetGpsDisplay();
   closeScreen('cardioScreen');
 }
 
@@ -3386,6 +3536,7 @@ async function commitWorkout(w) {
     distance: w.distance || null,
     duration_min: w.durationMin || null,
     sets: w.sets || [],
+    gps_verified: w.gpsVerified || false,
   };
 
   if (isNew) {

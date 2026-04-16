@@ -629,6 +629,41 @@
   .notif-item:last-child { border-bottom: none; }
   .notif-item .notif-time { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
 
+  .group-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; margin-bottom: 8px; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .group-card:active { opacity: 0.7; }
+  .group-icon { font-size: 32px; }
+  .group-info { flex: 1; min-width: 0; }
+  .group-name { font-weight: 800; font-size: 15px; }
+  .group-meta { font-size: 12px; color: var(--muted); }
+
+  .battle-card {
+    background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px; cursor: pointer;
+  }
+  .battle-card.active { border-color: #ff6b35; }
+  .battle-vs {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    font-weight: 900; font-size: 15px; margin-bottom: 8px;
+  }
+  .battle-vs .vs { color: #ff4757; font-size: 18px; }
+  .battle-score {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg); border-radius: 10px; padding: 10px 14px;
+  }
+  .battle-score .team { text-align: center; flex: 1; }
+  .battle-score .team .score { font-size: 22px; font-weight: 900; }
+  .battle-score .team .label { font-size: 11px; color: var(--muted); }
+  .battle-status {
+    display: inline-block; font-size: 11px; font-weight: 800;
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .battle-status.active { background: #fff3e0; color: #ff6b35; }
+  .battle-status.finished { background: #e8f5e9; color: #43a047; }
+
   .interval-timer {
     position: sticky;
     top: 0;
@@ -799,6 +834,12 @@
       <button data-sort="volume" data-i18n="seg_volume">💪 今日のボリューム</button>
     </div>
     <div id="rankList"></div>
+    <div class="section-title">
+      <span data-i18n="sec_groups">グループ</span>
+      <button class="link" onclick="showGroupActions()" data-i18n="group_actions">+ 作成 / 参加</button>
+    </div>
+    <div id="groupList"></div>
+
     <div class="section-title" data-i18n="sec_timeline">タイムライン</div>
     <div id="timelineList"></div>
   </div>
@@ -1017,6 +1058,34 @@
   <div class="screen-body" id="userDetailBody"></div>
 </div>
 
+<!-- ============ GROUP DETAIL SCREEN ============ -->
+<div class="screen" id="groupDetailScreen">
+  <div class="screen-head">
+    <button class="icon-btn" onclick="closeScreen('groupDetailScreen')">✕</button>
+    <div class="title" id="groupDetailTitle">グループ</div>
+    <button class="icon-btn" id="groupBattleBtn" onclick="openCreateBattle()">⚔️</button>
+  </div>
+  <div class="screen-body" id="groupDetailBody"></div>
+</div>
+
+<!-- ============ CREATE BATTLE SCREEN ============ -->
+<div class="screen" id="createBattleScreen">
+  <div class="screen-head">
+    <button class="icon-btn" onclick="closeScreen('createBattleScreen')">✕</button>
+    <div class="title" data-i18n="title_create_battle">対抗戦を作成</div>
+  </div>
+  <div class="screen-body" id="createBattleBody"></div>
+</div>
+
+<!-- ============ BATTLE DETAIL SCREEN ============ -->
+<div class="screen" id="battleDetailScreen">
+  <div class="screen-head">
+    <button class="icon-btn" onclick="closeScreen('battleDetailScreen')">✕</button>
+    <div class="title" data-i18n="title_battle_detail">対抗戦</div>
+  </div>
+  <div class="screen-body" id="battleDetailBody"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1090,6 +1159,40 @@ const I18N = {
     sec_quick_record: 'クイック記録',
     sec_everyone: 'みんなの記録',
     sec_timeline: 'タイムライン',
+    sec_groups: 'グループ',
+    group_actions: '+ 作成 / 参加',
+    group_create: 'グループを作成',
+    group_join: '招待コードで参加',
+    group_name_prompt: 'グループ名を入力',
+    group_code_prompt: '招待コードを入力',
+    group_created: 'グループを作成しました',
+    group_joined: 'グループに参加しました',
+    group_left: 'グループを退出しました',
+    group_not_found: '招待コードが見つかりません',
+    group_already_member: 'すでに参加しています',
+    group_invite_code: '招待コード',
+    group_members: 'メンバー',
+    group_ranking: 'グループ内ランキング',
+    group_battles: '対抗戦',
+    group_no_battles: 'まだ対抗戦はありません',
+    group_leave: '退出',
+    title_create_battle: '対抗戦を作成',
+    title_battle_detail: '対抗戦',
+    battle_opponent: '対戦相手グループ',
+    battle_metric: '競う指標',
+    battle_metric_volume: '合計ボリューム',
+    battle_metric_workouts: 'ワークアウト回数',
+    battle_period: '期間',
+    battle_days: '日間',
+    battle_start: '対抗戦を開始',
+    battle_created: '対抗戦を開始しました',
+    battle_vs: 'VS',
+    battle_active: '開催中',
+    battle_finished: '終了',
+    battle_win: '勝ち',
+    battle_lose: '負け',
+    battle_draw: '引き分け',
+    empty_no_groups: 'グループに参加していません',
     sec_history: '履歴',
     sec_profile: 'プロフィール',
     sec_routine_manage: 'マイルーティン管理',
@@ -1242,6 +1345,40 @@ const I18N = {
     sec_quick_record: 'Quick Record',
     sec_everyone: "Everyone's Activity",
     sec_timeline: 'Timeline',
+    sec_groups: 'Groups',
+    group_actions: '+ Create / Join',
+    group_create: 'Create Group',
+    group_join: 'Join with Code',
+    group_name_prompt: 'Enter group name',
+    group_code_prompt: 'Enter invite code',
+    group_created: 'Group created',
+    group_joined: 'Joined group',
+    group_left: 'Left group',
+    group_not_found: 'Invite code not found',
+    group_already_member: 'Already a member',
+    group_invite_code: 'Invite code',
+    group_members: 'Members',
+    group_ranking: 'Group Ranking',
+    group_battles: 'Battles',
+    group_no_battles: 'No battles yet',
+    group_leave: 'Leave',
+    title_create_battle: 'Create Battle',
+    title_battle_detail: 'Battle',
+    battle_opponent: 'Opponent Group',
+    battle_metric: 'Metric',
+    battle_metric_volume: 'Total Volume',
+    battle_metric_workouts: 'Workout Count',
+    battle_period: 'Period',
+    battle_days: ' days',
+    battle_start: 'Start Battle',
+    battle_created: 'Battle started',
+    battle_vs: 'VS',
+    battle_active: 'Active',
+    battle_finished: 'Finished',
+    battle_win: 'Win',
+    battle_lose: 'Lose',
+    battle_draw: 'Draw',
+    empty_no_groups: 'Not in any groups',
     sec_history: 'History',
     sec_profile: 'Profile',
     sec_routine_manage: 'Manage Routines',
@@ -2294,6 +2431,323 @@ async function showUserDetail(userId) {
 }
 
 // ===================================================================
+// GROUPS
+// ===================================================================
+let myGroups = [];
+
+async function loadGroups() {
+  const { data: memberships } = await sb.from('group_members').select('group_id').eq('user_id', currentUserId);
+  if (!memberships || !memberships.length) { myGroups = []; renderGroups(); return; }
+  const gIds = memberships.map(m => m.group_id);
+  const { data: groups } = await sb.from('groups').select('*').in('id', gIds);
+  const { data: allMembers } = await sb.from('group_members').select('group_id, user_id').in('group_id', gIds);
+  myGroups = (groups || []).map(g => ({
+    ...g,
+    memberCount: (allMembers || []).filter(m => m.group_id === g.id).length,
+  }));
+  renderGroups();
+}
+
+function renderGroups() {
+  const c = $('groupList');
+  if (!myGroups.length) {
+    c.innerHTML = `<div class="empty-state">${t('empty_no_groups')}</div>`;
+    return;
+  }
+  c.innerHTML = myGroups.map(g => `<div class="group-card" onclick="showGroupDetail('${g.id}')">
+    <div class="group-icon">${g.icon}</div>
+    <div class="group-info">
+      <div class="group-name">${escapeHtml(g.name)}</div>
+      <div class="group-meta">${t('group_members')}: ${g.memberCount}</div>
+    </div>
+  </div>`).join('');
+}
+
+function showGroupActions() {
+  const choice = prompt(
+    `1: ${t('group_create')}\n2: ${t('group_join')}\n\n${currentLang === 'ja' ? '番号を入力' : 'Enter number'}`,
+    '1'
+  );
+  if (choice === '1') createGroup();
+  else if (choice === '2') joinGroup();
+}
+
+async function createGroup() {
+  const name = prompt(t('group_name_prompt'));
+  if (!name || !name.trim()) return;
+  const icons = ['⚡','🔥','💪','🏆','🎯','⭐','🦁','🐉','🦅','🐺'];
+  const icon = icons[Math.floor(Math.random() * icons.length)];
+  const { data: group, error } = await sb.from('groups').insert({
+    name: name.trim(), icon, created_by: currentUserId,
+  }).select().single();
+  if (error || !group) { toast('Error'); return; }
+  await sb.from('group_members').insert({ group_id: group.id, user_id: currentUserId, role: 'admin' });
+  toast(t('group_created'));
+  loadGroups();
+}
+
+async function joinGroup() {
+  const code = prompt(t('group_code_prompt'));
+  if (!code || !code.trim()) return;
+  const { data: group } = await sb.from('groups').select('*').eq('invite_code', code.trim()).maybeSingle();
+  if (!group) { toast(t('group_not_found')); return; }
+  const { data: existing } = await sb.from('group_members').select('id').eq('group_id', group.id).eq('user_id', currentUserId).maybeSingle();
+  if (existing) { toast(t('group_already_member')); return; }
+  await sb.from('group_members').insert({ group_id: group.id, user_id: currentUserId });
+  toast(t('group_joined'));
+  loadGroups();
+}
+
+let currentGroupId = null;
+
+async function showGroupDetail(groupId) {
+  currentGroupId = groupId;
+  const { data: group } = await sb.from('groups').select('*').eq('id', groupId).single();
+  if (!group) return;
+  $('groupDetailTitle').textContent = group.icon + ' ' + group.name;
+
+  const { data: members } = await sb.from('group_members').select('*').eq('group_id', groupId);
+  const uIds = (members || []).map(m => m.user_id);
+  const { data: profiles } = await sb.from('profiles').select('*').in('id', uIds);
+  const today = todayStr();
+  const { data: todayWorkouts } = await sb.from('workouts').select('*').in('user_id', uIds).eq('date', today);
+
+  const memberList = (profiles || []).map(p => {
+    const uW = (todayWorkouts || []).filter(w => w.user_id === p.id);
+    const fakeState = { workouts: uW.map(w => ({
+      date: w.date, type: w.type, sets: w.sets || [],
+      distance: w.distance ? Number(w.distance) : null,
+      durationMin: w.duration_min ? Number(w.duration_min) : null,
+    }))};
+    const stats = computeTodayStats(fakeState);
+    return { id: p.id, name: p.username, avatar: p.avatar || '🐻', streak: p.streak || 0, stats, didToday: p.last_workout_date === today };
+  }).sort((a, b) => b.stats.volume - a.stats.volume);
+
+  const { data: battles } = await sb.from('group_battles').select('*')
+    .or(`group_a_id.eq.${groupId},group_b_id.eq.${groupId}`)
+    .order('created_at', { ascending: false }).limit(10);
+
+  const battleGroupIds = new Set();
+  (battles || []).forEach(b => { battleGroupIds.add(b.group_a_id); battleGroupIds.add(b.group_b_id); });
+  let battleGroups = {};
+  if (battleGroupIds.size) {
+    const { data: bgs } = await sb.from('groups').select('id,name,icon').in('id', [...battleGroupIds]);
+    (bgs || []).forEach(g => { battleGroups[g.id] = g; });
+  }
+
+  const isAdmin = (members || []).find(m => m.user_id === currentUserId)?.role === 'admin';
+  const dayUnit = currentLang === 'en' ? 'd' : '日';
+
+  let html = `
+    <div style="text-align:center;padding:12px 0">
+      <div style="font-size:48px">${group.icon}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${t('group_invite_code')}: <b>${group.invite_code}</b></div>
+    </div>
+    <div class="section-title">${t('group_ranking')}</div>
+  `;
+
+  html += memberList.map((u, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    const vol = formatVolume(u.stats.volume);
+    return `<div class="rank-item ${u.id === currentUserId ? 'me' : ''}" onclick="showUserDetail('${u.id}')">
+      <div class="rank-num ${i < 3 ? 'top' : ''}">${medal}</div>
+      <div class="rank-avatar">${u.avatar}</div>
+      <div class="rank-info">
+        <div class="rank-name">${escapeHtml(u.name)}</div>
+        <div class="rank-meta">🔥${u.streak}${dayUnit} · 💪${vol}</div>
+      </div>
+      <div class="rank-status ${u.didToday ? 'done' : 'not'}">${u.didToday ? t('did_today') : t('not_yet')}</div>
+    </div>`;
+  }).join('');
+
+  html += `<div class="section-title">${t('group_battles')}</div>`;
+  if (!battles || !battles.length) {
+    html += `<div class="empty-state">${t('group_no_battles')}</div>`;
+  } else {
+    html += (battles || []).map(b => {
+      const ga = battleGroups[b.group_a_id] || { name: '?', icon: '?' };
+      const gb = battleGroups[b.group_b_id] || { name: '?', icon: '?' };
+      const statusClass = b.status;
+      const statusLabel = t('battle_' + b.status);
+      return `<div class="battle-card ${statusClass}" onclick="showBattleDetail('${b.id}')">
+        <div class="battle-vs">
+          <span>${ga.icon} ${escapeHtml(ga.name)}</span>
+          <span class="vs">${t('battle_vs')}</span>
+          <span>${gb.icon} ${escapeHtml(gb.name)}</span>
+        </div>
+        <div style="text-align:center">
+          <span class="battle-status ${statusClass}">${statusLabel}</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px">${b.start_date} ~ ${b.end_date}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  html += `<div style="margin-top:16px;text-align:center">
+    <button class="btn secondary small" onclick="leaveGroup('${groupId}')" style="color:var(--danger)">${t('group_leave')}</button>
+  </div>`;
+
+  $('groupDetailBody').innerHTML = html;
+  $('groupDetailScreen').classList.add('active');
+}
+
+async function leaveGroup(groupId) {
+  if (!confirm(currentLang === 'ja' ? 'グループを退出しますか？' : 'Leave this group?')) return;
+  await sb.from('group_members').delete().eq('group_id', groupId).eq('user_id', currentUserId);
+  closeScreen('groupDetailScreen');
+  toast(t('group_left'));
+  loadGroups();
+}
+
+async function openCreateBattle() {
+  if (!currentGroupId) return;
+  const { data: allGroups } = await sb.from('groups').select('*').neq('id', currentGroupId);
+  if (!allGroups || !allGroups.length) {
+    toast(currentLang === 'ja' ? '対戦可能なグループがありません' : 'No other groups available');
+    return;
+  }
+  let html = `<div class="card" style="padding:16px">
+    <div style="font-weight:800;margin-bottom:12px">${t('battle_opponent')}</div>
+    <select id="battleOpponent" class="input">
+      ${allGroups.map(g => `<option value="${g.id}">${g.icon} ${escapeHtml(g.name)}</option>`).join('')}
+    </select>
+    <div style="font-weight:800;margin:12px 0 6px">${t('battle_metric')}</div>
+    <select id="battleMetric" class="input">
+      <option value="volume">${t('battle_metric_volume')}</option>
+      <option value="workouts">${t('battle_metric_workouts')}</option>
+    </select>
+    <div style="font-weight:800;margin:12px 0 6px">${t('battle_period')}</div>
+    <select id="battleDays" class="input">
+      <option value="3">3${t('battle_days')}</option>
+      <option value="7" selected>7${t('battle_days')}</option>
+      <option value="14">14${t('battle_days')}</option>
+      <option value="30">30${t('battle_days')}</option>
+    </select>
+    <button class="btn" style="margin-top:16px;width:100%" onclick="submitCreateBattle()">${t('battle_start')}</button>
+  </div>`;
+  $('createBattleBody').innerHTML = html;
+  $('createBattleScreen').classList.add('active');
+}
+
+async function submitCreateBattle() {
+  const opponentId = $('battleOpponent').value;
+  const metric = $('battleMetric').value;
+  const days = parseInt($('battleDays').value);
+  const start = todayStr();
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + days - 1);
+  const end = endDate.toISOString().slice(0, 10);
+
+  const { error } = await sb.from('group_battles').insert({
+    group_a_id: currentGroupId, group_b_id: opponentId,
+    metric, start_date: start, end_date: end, created_by: currentUserId,
+  });
+  if (error) { toast('Error'); return; }
+  toast(t('battle_created'));
+  closeScreen('createBattleScreen');
+  showGroupDetail(currentGroupId);
+}
+
+async function showBattleDetail(battleId) {
+  const { data: battle } = await sb.from('group_battles').select('*').eq('id', battleId).single();
+  if (!battle) return;
+
+  const [groupA, groupB] = await Promise.all([
+    sb.from('groups').select('*').eq('id', battle.group_a_id).single().then(r => r.data),
+    sb.from('groups').select('*').eq('id', battle.group_b_id).single().then(r => r.data),
+  ]);
+
+  const [membersA, membersB] = await Promise.all([
+    sb.from('group_members').select('user_id').eq('group_id', battle.group_a_id).then(r => r.data || []),
+    sb.from('group_members').select('user_id').eq('group_id', battle.group_b_id).then(r => r.data || []),
+  ]);
+
+  const allUids = [...membersA.map(m => m.user_id), ...membersB.map(m => m.user_id)];
+  const { data: workouts } = await sb.from('workouts').select('*')
+    .in('user_id', allUids)
+    .gte('date', battle.start_date)
+    .lte('date', battle.end_date);
+
+  const { data: profiles } = await sb.from('profiles').select('id,username,avatar').in('id', allUids);
+  const pMap = {};
+  (profiles || []).forEach(p => { pMap[p.id] = p; });
+
+  function calcScore(memberIds, ws) {
+    const uids = new Set(memberIds);
+    const filtered = (ws || []).filter(w => uids.has(w.user_id));
+    if (battle.metric === 'workouts') return filtered.length;
+    let vol = 0;
+    filtered.forEach(w => {
+      (w.sets || []).forEach(s => {
+        if (s.weight && s.reps) vol += s.weight * s.reps;
+        else if (s.reps) vol += s.reps;
+      });
+    });
+    return vol;
+  }
+
+  const scoreA = calcScore(membersA.map(m => m.user_id), workouts);
+  const scoreB = calcScore(membersB.map(m => m.user_id), workouts);
+
+  const today = todayStr();
+  const isFinished = battle.end_date < today || battle.status === 'finished';
+  let resultLabel = '';
+  if (isFinished) {
+    if (scoreA > scoreB) resultLabel = `${groupA?.icon} ${t('battle_win')}`;
+    else if (scoreB > scoreA) resultLabel = `${groupB?.icon} ${t('battle_win')}`;
+    else resultLabel = t('battle_draw');
+  }
+
+  const metricLabel = battle.metric === 'volume' ? t('battle_metric_volume') : t('battle_metric_workouts');
+
+  function memberBreakdown(memberIds, ws) {
+    const uids = new Set(memberIds);
+    return memberIds.map(uid => {
+      const p = pMap[uid] || { username: '?', avatar: '🐻' };
+      const filtered = (ws || []).filter(w => w.user_id === uid && uids.has(w.user_id));
+      let val = 0;
+      if (battle.metric === 'workouts') val = filtered.length;
+      else filtered.forEach(w => { (w.sets || []).forEach(s => { if (s.weight && s.reps) val += s.weight * s.reps; else if (s.reps) val += s.reps; }); });
+      return { name: p.username, avatar: p.avatar || '🐻', val };
+    }).sort((a, b) => b.val - a.val);
+  }
+
+  const breakA = memberBreakdown(membersA.map(m => m.user_id), workouts);
+  const breakB = memberBreakdown(membersB.map(m => m.user_id), workouts);
+
+  const fmtScore = (s) => battle.metric === 'volume' ? formatVolume(s) : s;
+
+  let html = `
+    <div class="battle-card ${isFinished ? 'finished' : 'active'}" style="cursor:default">
+      <div class="battle-vs">
+        <span>${groupA?.icon} ${escapeHtml(groupA?.name || '?')}</span>
+        <span class="vs">${t('battle_vs')}</span>
+        <span>${groupB?.icon} ${escapeHtml(groupB?.name || '?')}</span>
+      </div>
+      <div class="battle-score">
+        <div class="team"><div class="score">${fmtScore(scoreA)}</div><div class="label">${escapeHtml(groupA?.name || '?')}</div></div>
+        <div style="font-size:11px;color:var(--muted)">${metricLabel}</div>
+        <div class="team"><div class="score">${fmtScore(scoreB)}</div><div class="label">${escapeHtml(groupB?.name || '?')}</div></div>
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <span class="battle-status ${isFinished ? 'finished' : 'active'}">${isFinished ? t('battle_finished') : t('battle_active')}</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:6px">${battle.start_date} ~ ${battle.end_date}</span>
+      </div>
+      ${resultLabel ? `<div style="text-align:center;font-weight:900;font-size:16px;margin-top:8px">${resultLabel}</div>` : ''}
+    </div>
+
+    <div class="section-title">${groupA?.icon} ${escapeHtml(groupA?.name || '?')}</div>
+    ${breakA.map(m => `<div class="rank-item"><div class="rank-avatar">${m.avatar}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
+
+    <div class="section-title">${groupB?.icon} ${escapeHtml(groupB?.name || '?')}</div>
+    ${breakB.map(m => `<div class="rank-item"><div class="rank-avatar">${m.avatar}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
+  `;
+
+  $('battleDetailBody').innerHTML = html;
+  $('battleDetailScreen').classList.add('active');
+}
+
+// ===================================================================
 // ROUTINE EDITOR
 // ===================================================================
 function openRoutineEditor(routineId) {
@@ -3055,7 +3509,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     $(tab.dataset.view).classList.add('active');
-    if (tab.dataset.view === 'viewFriends') renderRanking();
+    if (tab.dataset.view === 'viewFriends') { renderRanking(); loadGroups(); }
     if (tab.dataset.view === 'viewHistory') renderHistory();
   });
 });

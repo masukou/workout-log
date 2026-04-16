@@ -56,7 +56,7 @@ CREATE POLICY "groups: authenticated insert"
 
 CREATE POLICY "groups: admin update"
   ON public.groups FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.group_members WHERE group_id = id AND user_id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM public.group_members WHERE group_id = groups.id AND user_id = auth.uid() AND role = 'admin'));
 
 CREATE POLICY "groups: admin delete"
   ON public.groups FOR DELETE

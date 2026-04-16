@@ -2480,7 +2480,7 @@ async function createGroup() {
   const { data: group, error } = await sb.from('groups').insert({
     name: name.trim(), icon, created_by: currentUserId,
   }).select().single();
-  if (error || !group) { toast('Error'); return; }
+  if (error || !group) { toast('Error: ' + (error?.message || 'unknown')); console.error(error); return; }
   await sb.from('group_members').insert({ group_id: group.id, user_id: currentUserId, role: 'admin' });
   toast(t('group_created'));
   loadGroups();

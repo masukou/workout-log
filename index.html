@@ -773,6 +773,20 @@
   .achievement-row .ach-name { font-weight: 800; font-size: 13px; flex: 1; }
   .achievement-row .ach-text { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+  .milestone-card {
+    background: var(--card); border: 2px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; margin-bottom: 10px; position: relative; overflow: hidden;
+  }
+  .milestone-card .ms-icon { font-size: 36px; float: right; margin: -4px 0 0 8px; }
+  .milestone-card .ms-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+  .milestone-card .ms-title { font-size: 16px; font-weight: 900; margin: 4px 0; }
+  .milestone-card .ms-sub { font-size: 12px; color: var(--muted); }
+  .milestone-card .ms-bar { height: 8px; background: var(--border); border-radius: 4px; margin-top: 10px; overflow: hidden; }
+  .milestone-card .ms-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .milestone-card .ms-fill.weight { background: linear-gradient(90deg, #ff6b35, #ff4757); }
+  .milestone-card .ms-fill.distance { background: linear-gradient(90deg, #1e88e5, #00bcd4); }
+  .milestone-card .ms-next { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+
   .note-input {
     width: 100%;
     padding: 12px;
@@ -827,6 +841,8 @@
         <div class="sub" id="mascotSub"></div>
       </div>
     </div>
+
+    <div id="milestoneCards"></div>
 
     <div class="section-title">
       <span data-i18n="sec_my_routines">マイルーティン</span>
@@ -2097,6 +2113,122 @@ async function resetData() {
 // ===================================================================
 // RENDER
 // ===================================================================
+const WEIGHT_MILESTONES = [
+  { kg: 0, icon: '🏋️', ja: 'スタート！', en: 'Just getting started!' },
+  { kg: 100, icon: '🍉', ja: 'スイカ10個分', en: '10 Watermelons' },
+  { kg: 500, icon: '🎹', ja: 'グランドピアノ1台分', en: '1 Grand Piano' },
+  { kg: 1000, icon: '🚗', ja: '軽自動車1台分', en: '1 Light Car' },
+  { kg: 2000, icon: '🦛', ja: 'カバ1頭分', en: '1 Hippo' },
+  { kg: 4000, icon: '🐘', ja: 'アフリカゾウ1頭分', en: '1 African Elephant' },
+  { kg: 10000, icon: '🚌', ja: '路線バス1台分', en: '1 City Bus' },
+  { kg: 30000, icon: '🦕', ja: 'ブラキオサウルス1頭分', en: '1 Brachiosaurus' },
+  { kg: 50000, icon: '🎖️', ja: '戦車1台分', en: '1 Tank' },
+  { kg: 100000, icon: '🐋', ja: 'シロナガスクジラ1頭分', en: '1 Blue Whale' },
+  { kg: 200000, icon: '🛰️', ja: '国際宇宙ステーション', en: 'International Space Station' },
+  { kg: 420000, icon: '🗼', ja: 'エッフェル塔', en: 'Eiffel Tower' },
+  { kg: 1000000, icon: '🚀', ja: 'スペースシャトル3機分', en: '3 Space Shuttles' },
+  { kg: 5000000, icon: '🏰', ja: '姫路城', en: 'Himeji Castle' },
+  { kg: 10000000, icon: '👑', ja: 'タイタニック号', en: 'RMS Titanic' },
+];
+
+const DISTANCE_MILESTONES = [
+  { km: 0, icon: '👟', ja: 'スタート！', en: 'Just getting started!' },
+  { km: 5, icon: '🏟️', ja: '陸上トラック12.5周', en: '12.5 Laps on a Track' },
+  { km: 10, icon: '🚃', ja: '山手線ほぼ1周', en: 'Yamanote Line Loop' },
+  { km: 42.195, icon: '🏅', ja: 'フルマラソン達成！', en: 'Full Marathon!' },
+  { km: 100, icon: '♨️', ja: '東京→箱根', en: 'Tokyo → Hakone' },
+  { km: 200, icon: '🗻', ja: '東京→富士山往復', en: 'Tokyo → Mt. Fuji Round Trip' },
+  { km: 500, icon: '🏯', ja: '東京→大阪', en: 'Tokyo → Osaka' },
+  { km: 1000, icon: '🦌', ja: '北海道→東京', en: 'Hokkaido → Tokyo' },
+  { km: 3000, icon: '🗾', ja: '日本縦断！', en: 'Length of Japan!' },
+  { km: 5000, icon: '🌏', ja: '東京→バンコク', en: 'Tokyo → Bangkok' },
+  { km: 10000, icon: '🗺️', ja: '日本一周！', en: 'Around Japan!' },
+  { km: 20000, icon: '🌍', ja: '地球半周！', en: 'Halfway Around Earth!' },
+  { km: 40075, icon: '🌎', ja: '地球一周！', en: 'Around the Earth!' },
+  { km: 100000, icon: '🌕', ja: '月への道のり1/4', en: '1/4 Way to the Moon' },
+  { km: 384400, icon: '🚀', ja: '月まで到達！', en: 'Reached the Moon!' },
+];
+
+function calcTotalVolume() {
+  let vol = 0;
+  (state?.workouts || []).forEach(w => {
+    (w.sets || []).forEach(s => {
+      if (s.weight && s.reps) vol += s.weight * s.reps;
+      else if (s.reps) vol += s.reps;
+    });
+  });
+  return vol;
+}
+
+function calcTotalDistance() {
+  let km = 0;
+  (state?.workouts || []).forEach(w => {
+    if (w.distance) km += Number(w.distance);
+  });
+  return km;
+}
+
+function getMilestone(milestones, value) {
+  let current = milestones[0];
+  let next = milestones[1] || null;
+  for (let i = milestones.length - 1; i >= 0; i--) {
+    const key = milestones[i].kg !== undefined ? 'kg' : 'km';
+    if (value >= milestones[i][key]) {
+      current = milestones[i];
+      next = milestones[i + 1] || null;
+      break;
+    }
+  }
+  return { current, next };
+}
+
+function renderMilestones() {
+  const totalVol = calcTotalVolume();
+  const totalDist = calcTotalDistance();
+
+  const wm = getMilestone(WEIGHT_MILESTONES, totalVol);
+  const dm = getMilestone(DISTANCE_MILESTONES, totalDist);
+
+  let html = '';
+
+  // Weight milestone
+  const wCurr = wm.current;
+  const wNext = wm.next;
+  const wLabel = currentLang === 'en' ? wCurr.en : wCurr.ja;
+  const wPct = wNext ? Math.min(100, ((totalVol - wCurr.kg) / (wNext.kg - wCurr.kg)) * 100) : 100;
+  const wNextLabel = wNext ? (currentLang === 'en' ? wNext.en : wNext.ja) : '';
+  const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol.toFixed(0) + 'kg';
+
+  html += `<div class="milestone-card">
+    <div class="ms-icon">${wCurr.icon}</div>
+    <div class="ms-label">💪 ${currentLang === 'en' ? 'Total Lifted' : '累計挙上量'}</div>
+    <div class="ms-title">${wLabel}</div>
+    <div class="ms-sub">${volStr} ${currentLang === 'en' ? 'lifted so far' : '持ち上げた'}</div>
+    <div class="ms-bar"><div class="ms-fill weight" style="width:${wPct}%"></div></div>
+    ${wNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${wNext.icon} ${wNextLabel} (${wNext.kg >= 1000 ? (wNext.kg/1000)+'t' : wNext.kg+'kg'})</div>` : ''}
+  </div>`;
+
+  // Distance milestone
+  if (totalDist > 0 || (state?.workouts || []).some(w => w.type === 'cardio')) {
+    const dCurr = dm.current;
+    const dNext = dm.next;
+    const dLabel = currentLang === 'en' ? dCurr.en : dCurr.ja;
+    const dPct = dNext ? Math.min(100, ((totalDist - dCurr.km) / (dNext.km - dCurr.km)) * 100) : 100;
+    const dNextLabel = dNext ? (currentLang === 'en' ? dNext.en : dNext.ja) : '';
+
+    html += `<div class="milestone-card">
+      <div class="ms-icon">${dCurr.icon}</div>
+      <div class="ms-label">🏃 ${currentLang === 'en' ? 'Total Distance' : '累計走行距離'}</div>
+      <div class="ms-title">${dLabel}</div>
+      <div class="ms-sub">${totalDist.toFixed(1)}km ${currentLang === 'en' ? 'covered so far' : '走った'}</div>
+      <div class="ms-bar"><div class="ms-fill distance" style="width:${dPct}%"></div></div>
+      ${dNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${dNext.icon} ${dNextLabel} (${dNext.km >= 1000 ? (dNext.km/1000).toFixed(0)+'k' : dNext.km}km)</div>` : ''}
+    </div>`;
+  }
+
+  $('milestoneCards').innerHTML = html;
+}
+
 function render() {
   if (!state) return;
   $('hStreak').textContent = state.streak;
@@ -2120,6 +2252,9 @@ function render() {
     main.textContent = t('mascot_go_main');
     sub.textContent = state.streak > 0 ? t('mascot_streak_cont', state.streak) : t('mascot_first');
   }
+
+  // Milestones
+  renderMilestones();
 
   // Routines
   const rl = $('routineList');

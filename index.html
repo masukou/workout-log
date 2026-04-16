@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>運動ログ - 仲間と続ける運動習慣</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --primary: #58cc02;
@@ -774,6 +775,8 @@
       <button data-sort="volume" data-i18n="seg_volume">💪 今日のボリューム</button>
     </div>
     <div id="rankList"></div>
+    <div class="section-title" data-i18n="sec_timeline">タイムライン</div>
+    <div id="timelineList"></div>
   </div>
 
   <!-- ============ HISTORY ============ -->
@@ -1062,6 +1065,7 @@ const I18N = {
     sec_my_routines: 'マイルーティン',
     sec_quick_record: 'クイック記録',
     sec_everyone: 'みんなの記録',
+    sec_timeline: 'タイムライン',
     sec_history: '履歴',
     sec_profile: 'プロフィール',
     sec_routine_manage: 'マイルーティン管理',
@@ -1211,6 +1215,7 @@ const I18N = {
     sec_my_routines: 'My Routines',
     sec_quick_record: 'Quick Record',
     sec_everyone: "Everyone's Activity",
+    sec_timeline: 'Timeline',
     sec_history: 'History',
     sec_profile: 'Profile',
     sec_routine_manage: 'Manage Routines',
@@ -1374,11 +1379,15 @@ function applyI18n() {
 }
 
 // ===================================================================
-// STORAGE
+// SUPABASE CLIENT
 // ===================================================================
-const USERS_KEY = 'undokiroku_users_v1';
-const SESSION_KEY = 'undokiroku_session_v1';
+const SUPABASE_URL = 'https://ygvnlicibjqulbjlqgur.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_jZJ74We3JsG0Ib2pLv6ycg_DbLoxhl2';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ===================================================================
+// STORAGE (Supabase-backed)
+// ===================================================================
 const DEFAULT_USER_STATE = () => ({
   createdAt: todayStr(),
   avatar: '🐻',
@@ -1386,22 +1395,10 @@ const DEFAULT_USER_STATE = () => ({
   maxStreak: 0,
   lastWorkoutDate: null,
   totalWorkouts: 0,
-  routines: [],         // [{id, name, items:[{exerciseId, defaultWeight, defaultReps, defaultSets, timerSec}]}]
-  customExercises: [],  // [{id, name, cat, type}]
-  workouts: [],         // history records
+  routines: [],
+  customExercises: [],
+  workouts: [],
 });
-
-function loadUsers() {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; }
-  catch(e) { return {}; }
-}
-function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
-
-async function hashPass(pass) {
-  const data = new TextEncoder().encode(pass + ':undo-salt-2024');
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
 
 // ===================================================================
 // APP STATE
@@ -1447,13 +1444,16 @@ function allExercises() {
   return [...PRESET_EXERCISES, ...(state?.customExercises || [])];
 }
 
-function saveState() {
-  if (!currentUser) return;
-  const users = loadUsers();
-  if (users[currentUser]) {
-    users[currentUser].state = state;
-    saveUsers(users);
-  }
+let currentUserId = null;
+
+async function saveState() {
+  if (!currentUserId) return;
+  await sb.from('profiles').update({
+    avatar: state.avatar,
+    streak: state.streak,
+    max_streak: state.maxStreak,
+    last_workout_date: state.lastWorkoutDate,
+  }).eq('id', currentUserId);
 }
 
 function checkNewDay() {
@@ -1696,38 +1696,76 @@ async function handleLogin() {
   if (user.length < 2) return toast(t('t_user_min'));
   if (pass.length < 4) return toast(t('t_pass_min'));
 
-  const users = loadUsers();
-  const hash = await hashPass(pass);
+  const email = user.toLowerCase().replace(/[^a-z0-9]/g, '_') + '@workout.app';
 
   if (loginMode === 'signup') {
-    if (users[user]) return toast(t('t_user_taken'));
-    users[user] = { passHash: hash, state: DEFAULT_USER_STATE() };
-    saveUsers(users);
+    const { data: existing } = await sb.from('profiles').select('id').eq('username', user).maybeSingle();
+    if (existing) return toast(t('t_user_taken'));
+    const { error } = await sb.auth.signUp({
+      email,
+      password: pass,
+      options: { data: { username: user } },
+    });
+    if (error) return toast(error.message);
   } else {
-    if (!users[user]) return toast(t('t_user_not_found'));
-    if (users[user].passHash !== hash) return toast(t('t_wrong_pass'));
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) return toast(t('t_wrong_pass'));
   }
-
-  localStorage.setItem(SESSION_KEY, user);
-  enterApp(user);
+  await enterApp();
 }
 
-function enterApp(user) {
-  currentUser = user;
-  const users = loadUsers();
-  state = { ...DEFAULT_USER_STATE(), ...users[user].state };
-  if (!state.routines) state.routines = [];
-  if (!state.customExercises) state.customExercises = [];
-  if (!state.workouts) state.workouts = [];
+async function enterApp() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  currentUserId = user.id;
+
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if (!profile) return;
+  currentUser = profile.username;
+
+  const { data: routines } = await sb.from('routines').select('*').eq('user_id', user.id).order('created_at');
+  const { data: customExercises } = await sb.from('custom_exercises').select('*').eq('user_id', user.id);
+  const { data: workouts } = await sb.from('workouts').select('*').eq('user_id', user.id).order('created_at');
+
+  const wIds = (workouts || []).map(w => w.id);
+  let likes = [];
+  if (wIds.length) {
+    const { data: l } = await sb.from('likes').select('*').in('workout_id', wIds);
+    likes = l || [];
+  }
+
+  state = {
+    avatar: profile.avatar || '🐻',
+    streak: profile.streak || 0,
+    maxStreak: profile.max_streak || 0,
+    lastWorkoutDate: profile.last_workout_date,
+    createdAt: profile.created_at?.slice(0, 10),
+    totalWorkouts: (workouts || []).length,
+    routines: (routines || []).map(r => ({ id: r.id, name: r.name, items: r.items || [] })),
+    customExercises: (customExercises || []).map(e => ({
+      id: e.id, name: e.name, nameEn: e.name_en,
+      cat: e.category || 'カスタム', catEn: e.category_en || 'Custom', type: e.type,
+    })),
+    workouts: (workouts || []).map(w => ({
+      id: w.id, date: w.date, type: w.type, title: w.title,
+      routineId: w.routine_id, note: w.note,
+      distance: w.distance ? Number(w.distance) : null,
+      durationMin: w.duration_min ? Number(w.duration_min) : null,
+      sets: w.sets || [],
+      likes: likes.filter(l => l.workout_id === w.id).map(l => l.user_id),
+    })),
+  };
+
   $('loginScreen').classList.remove('active');
   checkNewDay();
   render();
 }
 
-function logout() {
+async function logout() {
   if (!confirm(t('t_confirm_logout'))) return;
-  localStorage.removeItem(SESSION_KEY);
+  await sb.auth.signOut();
   currentUser = null;
+  currentUserId = null;
   state = null;
   $('loginScreen').classList.add('active');
   $('inUser').value = '';
@@ -1748,10 +1786,13 @@ function switchLoginMode(m) {
   }
 }
 
-function resetData() {
+async function resetData() {
   if (!confirm(t('t_confirm_reset'))) return;
-  state = DEFAULT_USER_STATE();
-  saveState();
+  await sb.from('workouts').delete().eq('user_id', currentUserId);
+  await sb.from('routines').delete().eq('user_id', currentUserId);
+  await sb.from('custom_exercises').delete().eq('user_id', currentUserId);
+  state = { ...DEFAULT_USER_STATE(), createdAt: state.createdAt, avatar: state.avatar };
+  await saveState();
   render();
   toast(t('t_reset_done'));
 }
@@ -1824,7 +1865,6 @@ function render() {
   $('pCardio').textContent = formatCardio(todayStats.distance, todayStats.duration);
 
   renderHistory();
-  renderRanking();
 }
 
 function renderHistory() {
@@ -1908,7 +1948,7 @@ function renderHistItem(w) {
         <div class="hist-title">${iconFor(w.type)} ${escapeHtml(w.title || '')}</div>
         <div class="hist-summary">${escapeHtml(summary)}</div>
       </div>
-      ${likeButtonHtml(currentUser, w)}
+      ${(w.likes||[]).length ? `<span style="font-size:12px;color:var(--muted)">❤️ ${(w.likes||[]).length}</span>` : ''}
       <div class="btns" onclick="event.stopPropagation()">
         <button onclick="editWorkout('${w.id}')">✏️</button>
         <button onclick="deleteWorkout('${w.id}')">🗑</button>
@@ -1928,12 +1968,24 @@ function iconFor(type) {
   return type === 'strength' ? '💪' : type === 'cardio' ? '🏃' : '📝';
 }
 
-function renderRanking() {
-  const users = loadUsers();
-  const list = Object.entries(users).map(([name, u]) => {
-    const s = { ...DEFAULT_USER_STATE(), ...u.state };
-    const todayStats = computeTodayStats(s);
-    return { name, ...s, todayStats, didToday: s.lastWorkoutDate === todayStr() };
+async function renderRanking() {
+  const { data: profiles } = await sb.from('profiles').select('*');
+  const today = todayStr();
+  const { data: todayWorkouts } = await sb.from('workouts').select('*').eq('date', today);
+
+  const list = (profiles || []).map(p => {
+    const uWorkouts = (todayWorkouts || []).filter(w => w.user_id === p.id);
+    const fakeState = { workouts: uWorkouts.map(w => ({
+      date: w.date, type: w.type, sets: w.sets || [],
+      distance: w.distance ? Number(w.distance) : null,
+      durationMin: w.duration_min ? Number(w.duration_min) : null,
+    }))};
+    const todayStats = computeTodayStats(fakeState);
+    return {
+      id: p.id, name: p.username, avatar: p.avatar || '🐻',
+      streak: p.streak || 0, maxStreak: p.max_streak || 0,
+      todayStats, didToday: p.last_workout_date === today,
+    };
   });
   list.sort((a,b) => {
     if (rankSort === 'today') return (b.didToday?1:0) - (a.didToday?1:0) || b.streak - a.streak;
@@ -1950,63 +2002,137 @@ function renderRanking() {
       : `<div class="rank-status not">${t('not_yet')}</div>`;
     const todayShort = formatTodayShort(u.todayStats) || t('no_record_today');
     const dayUnit = currentLang === 'en' ? 'd' : '日';
-    return `<div class="rank-item ${u.name===currentUser?'me':''}" onclick="showUserDetail('${u.name.replace(/'/g,"\\'")}')">
+    return `<div class="rank-item ${u.name===currentUser?'me':''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i<3?'top':''}">${medal}</div>
       <div class="rank-avatar">${u.avatar||'🐻'}</div>
       <div class="rank-info">
-        <div class="rank-name">${escapeHtml(u.name)}${u.name===currentUser?t('you_suffix'):''}</div>
+        <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
       </div>
       ${statusHtml}
+    </div>`;
+  }).join('');
+  renderTimeline(profiles);
+}
+
+async function renderTimeline(profiles) {
+  const profileMap = {};
+  (profiles || []).forEach(p => { profileMap[p.id] = p; });
+  const { data: recentWorkouts } = await sb.from('workouts').select('*').order('created_at', { ascending: false }).limit(30);
+  if (!recentWorkouts || !recentWorkouts.length) {
+    $('timelineList').innerHTML = `<div class="empty-state">${t('empty_no_records')}</div>`;
+    return;
+  }
+  const wIds = recentWorkouts.map(w => w.id);
+  let likes = [];
+  if (wIds.length) {
+    const { data: l } = await sb.from('likes').select('*').in('workout_id', wIds);
+    likes = l || [];
+  }
+  $('timelineList').innerHTML = recentWorkouts.map(w => {
+    const p = profileMap[w.user_id];
+    const userName = p ? p.username : '???';
+    const avatar = p ? (p.avatar || '🐻') : '🐻';
+    const isOwn = w.user_id === currentUserId;
+    let body = '';
+    if (w.type === 'strength') body = t('sets_count', (w.sets || []).length);
+    else if (w.type === 'cardio') {
+      const parts = [];
+      if (w.distance) parts.push(Number(w.distance) + 'km');
+      if (w.duration_min) parts.push(Number(w.duration_min) + t('unit_min'));
+      body = parts.join(' · ');
+    } else body = w.note || '';
+    const wLikes = likes.filter(l => l.workout_id === w.id).map(l => l.user_id);
+    const likeCount = wLikes.length;
+    const liked = currentUserId && wLikes.includes(currentUserId);
+    const likeBtn = isOwn ? '' : `<button class="like-btn ${liked?'liked':''}" onclick="event.stopPropagation();toggleLike('${w.id}',true)">
+      ${liked?'❤️':'🤍'} <span>${likeCount||''}</span></button>`;
+    const likeInfo = isOwn && likeCount ? `<span style="font-size:12px;color:var(--muted)">❤️ ${likeCount}</span>` : '';
+    return `<div class="hist-item">
+      <div class="hist-head">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:18px">${avatar}</span>
+            <span style="font-weight:700;font-size:13px">${escapeHtml(userName)}</span>
+            <span style="font-size:11px;color:var(--muted)">${w.date}</span>
+          </div>
+          <div style="margin-top:2px">${iconFor(w.type)} ${escapeHtml(w.title || '')}</div>
+          <div style="font-size:12px;color:var(--muted)">${escapeHtml(body)}</div>
+        </div>
+        ${likeBtn}${likeInfo}
+      </div>
     </div>`;
   }).join('');
 }
 
 let currentDetailUser = null;
 
-function totalLikesReceived(userState) {
-  return (userState.workouts || []).reduce((a, w) => a + ((w.likes || []).length), 0);
-}
-
-function toggleLike(ownerName, workoutId) {
-  if (!currentUser) return;
-  const users = loadUsers();
-  const u = users[ownerName];
-  if (!u || !u.state || !u.state.workouts) return;
-  const w = u.state.workouts.find(x => x.id === workoutId);
-  if (!w) return;
-  w.likes = w.likes || [];
-  const i = w.likes.indexOf(currentUser);
-  if (i >= 0) w.likes.splice(i, 1);
-  else w.likes.push(currentUser);
-  saveUsers(users);
-  if (ownerName === currentUser) {
-    state.workouts = u.state.workouts;
+async function toggleLike(workoutId, fromTimeline) {
+  if (!currentUserId) return;
+  const { data: existing } = await sb.from('likes').select('id').eq('workout_id', workoutId).eq('user_id', currentUserId).maybeSingle();
+  if (existing) {
+    await sb.from('likes').delete().eq('id', existing.id);
+  } else {
+    await sb.from('likes').insert({ workout_id: workoutId, user_id: currentUserId });
   }
-  if (currentDetailUser === ownerName) showUserDetail(ownerName);
-  if ($('rankList')) renderRanking();
-  if (ownerName === currentUser) render();
+  if (fromTimeline) {
+    renderRanking();
+    return;
+  }
+  const ow = state.workouts.find(w => w.id === workoutId);
+  if (ow) {
+    if (existing) ow.likes = ow.likes.filter(uid => uid !== currentUserId);
+    else ow.likes = [...(ow.likes||[]), currentUserId];
+    render();
+  }
+  if (currentDetailUser) showUserDetail(currentDetailUser);
 }
 
-function likeButtonHtml(ownerName, w) {
-  const likes = w.likes || [];
-  const liked = currentUser && likes.includes(currentUser);
-  const disabled = !currentUser;
-  return `<button class="like-btn ${liked?'liked':''}" ${disabled?'disabled':''} onclick="event.stopPropagation();toggleLike('${ownerName.replace(/'/g,"\\'")}','${w.id}')">
-    ${liked?'❤️':'🤍'} <span>${likes.length||''}</span>
+function likeButtonHtml(w, likeCount, liked) {
+  const disabled = !currentUserId;
+  return `<button class="like-btn ${liked?'liked':''}" ${disabled?'disabled':''} onclick="event.stopPropagation();toggleLike('${w.id}')">
+    ${liked?'❤️':'🤍'} <span>${likeCount||''}</span>
   </button>`;
 }
 
-function showUserDetail(name) {
-  currentDetailUser = name;
-  const users = loadUsers();
-  const u = users[name];
-  if (!u) return;
-  const s = { ...DEFAULT_USER_STATE(), ...u.state };
+async function showUserDetail(userId) {
+  currentDetailUser = userId;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).single();
+  if (!profile) return;
+  const name = profile.username;
+  const { data: workouts } = await sb.from('workouts').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30);
+  const { data: customExs } = await sb.from('custom_exercises').select('*').eq('user_id', userId);
+  const wIds = (workouts || []).map(w => w.id);
+  let likes = [];
+  if (wIds.length) {
+    const { data: l } = await sb.from('likes').select('*').in('workout_id', wIds);
+    likes = l || [];
+  }
+  const mappedWorkouts = (workouts || []).map(w => ({
+    id: w.id, date: w.date, type: w.type, title: w.title,
+    routineId: w.routine_id, note: w.note,
+    distance: w.distance ? Number(w.distance) : null,
+    durationMin: w.duration_min ? Number(w.duration_min) : null,
+    sets: w.sets || [],
+    likes: likes.filter(l => l.workout_id === w.id).map(l => l.user_id),
+  }));
+  const mappedExs = (customExs || []).map(e => ({
+    id: e.id, name: e.name, nameEn: e.name_en,
+    cat: e.category || 'カスタム', catEn: e.category_en || 'Custom', type: e.type,
+  }));
+  const s = {
+    avatar: profile.avatar || '🐻',
+    streak: profile.streak || 0,
+    maxStreak: profile.max_streak || 0,
+    lastWorkoutDate: profile.last_workout_date,
+    createdAt: profile.created_at?.slice(0, 10),
+    workouts: mappedWorkouts,
+    customExercises: mappedExs,
+  };
   const todayStats = computeTodayStats(s);
   const achievements = getUserAchievements(s);
-  const recent = [...(s.workouts||[])].reverse().slice(0,10);
-  const totalLikes = totalLikesReceived(s);
+  const recent = mappedWorkouts.slice(0, 10);
+  const totalLikes = likes.length;
   $('userDetailBody').innerHTML = `
     <div style="text-align:center;padding:12px 0">
       <div style="font-size:64px">${s.avatar||'🐻'}</div>
@@ -2038,13 +2164,14 @@ function showUserDetail(name) {
         body = parts.join(' · ');
       }
       else body = w.note||'';
+      const likeCount = (w.likes||[]).length;
       return `<div class="hist-item">
         <div class="hist-head">
           <div style="flex:1;min-width:0">
             <div>${iconFor(w.type)} ${escapeHtml(w.title||'')}</div>
             <div style="font-size:11px;color:var(--muted)">${w.date}</div>
           </div>
-          ${likeButtonHtml(name, w)}
+          ${likeCount ? `<span style="font-size:12px;color:var(--muted)">❤️ ${likeCount}</span>` : ''}
         </div>
         <div class="hist-detail">${escapeHtml(body)}</div>
       </div>`;
@@ -2133,24 +2260,31 @@ function removeItem(i) {
   renderRoutineEditor();
 }
 
-function saveRoutine() {
+async function saveRoutine() {
   const name = $('reName').value.trim();
   if (!name) return toast(t('t_routine_name_req'));
   if (!editingRoutine.items.length) return toast(t('t_add_ex_req'));
   editingRoutine.name = name;
   const idx = state.routines.findIndex(r => r.id === editingRoutine.id);
-  if (idx >= 0) state.routines[idx] = editingRoutine;
-  else state.routines.push(editingRoutine);
-  saveState();
+  if (idx >= 0) {
+    state.routines[idx] = editingRoutine;
+    await sb.from('routines').update({ name, items: editingRoutine.items }).eq('id', editingRoutine.id);
+  } else {
+    const { data } = await sb.from('routines').insert({
+      user_id: currentUserId, name, items: editingRoutine.items,
+    }).select().single();
+    if (data) editingRoutine.id = data.id;
+    state.routines.push(editingRoutine);
+  }
   closeScreen('routineEditorScreen');
   render();
   toast(t('t_saved'));
 }
 
-function deleteRoutine() {
+async function deleteRoutine() {
   if (!confirm(t('t_confirm_del_routine'))) return;
+  await sb.from('routines').delete().eq('id', editingRoutine.id);
   state.routines = state.routines.filter(r => r.id !== editingRoutine.id);
-  saveState();
   closeScreen('routineEditorScreen');
   render();
   toast(t('t_deleted'));
@@ -2314,14 +2448,17 @@ function pickExercise(id) {
   if (ex && pickerCallback) pickerCallback(ex);
 }
 
-function addCustomExercise() {
+async function addCustomExercise() {
   const name = prompt(t('t_ex_name_prompt'));
   if (!name) return;
   const typeChoice = prompt(t('t_ex_type_prompt'), 'w');
   const type = typeChoice === 'b' ? 'bodyweight' : typeChoice === 't' ? 'time' : 'weight';
-  const ex = { id: 'c_' + uid(), name: name.trim(), nameEn: name.trim(), cat: 'カスタム', catEn: 'Custom', type };
+  const { data } = await sb.from('custom_exercises').insert({
+    user_id: currentUserId, name: name.trim(), name_en: name.trim(),
+    category: 'カスタム', category_en: 'Custom', type,
+  }).select().single();
+  const ex = { id: data?.id || uid(), name: name.trim(), nameEn: name.trim(), cat: 'カスタム', catEn: 'Custom', type };
   state.customExercises.push(ex);
-  saveState();
   renderPicker();
   toast(t('t_added'));
 }
@@ -2580,7 +2717,7 @@ function cancelRecord() {
   closeScreen('recordScreen');
 }
 
-function saveRecord() {
+async function saveRecord() {
   if (!recordCtx.items.length) return toast(t('t_ex_req'));
   const sets = [];
   recordCtx.items.forEach(it => {
@@ -2609,7 +2746,7 @@ function saveRecord() {
     routineId: recordCtx.routineId,
     sets,
   };
-  commitWorkout(w);
+  await commitWorkout(w);
   recordCtx = null;
   closeScreen('recordScreen');
 }
@@ -2628,7 +2765,7 @@ function stepCardio(f, d) {
   const el = f==='dist' ? $('cardioDist') : $('cardioTime');
   el.value = Math.max(0, Number(el.value||0) + d).toFixed(f==='dist'?1:0);
 }
-function saveCardio() {
+async function saveCardio() {
   const dist = Number($('cardioDist').value)||0;
   const time = Number($('cardioTime').value)||0;
   if (dist <= 0) return toast(t('t_dist_req'));
@@ -2641,7 +2778,7 @@ function saveCardio() {
     durationMin: time || null,
     note: $('cardioNote').value.trim(),
   };
-  commitWorkout(w);
+  await commitWorkout(w);
   closeScreen('cardioScreen');
 }
 
@@ -2651,7 +2788,7 @@ function startFreeLog() {
   $('freeNote').value = '';
   $('freeScreen').classList.add('active');
 }
-function saveFree() {
+async function saveFree() {
   const title = $('freeTitle').value.trim();
   if (!title) return toast(t('t_what_req'));
   const w = {
@@ -2661,19 +2798,34 @@ function saveFree() {
     title,
     note: $('freeNote').value.trim(),
   };
-  commitWorkout(w);
+  await commitWorkout(w);
   closeScreen('freeScreen');
 }
 
 // ===================================================================
 // WORKOUT COMMIT / EDIT / DELETE
 // ===================================================================
-function commitWorkout(w) {
+async function commitWorkout(w) {
   const existingIdx = state.workouts.findIndex(x => x.id === w.id);
   const isNew = existingIdx < 0;
+
+  const dbRow = {
+    user_id: currentUserId,
+    date: w.date,
+    type: w.type,
+    title: w.title,
+    routine_id: null,
+    note: w.note || null,
+    distance: w.distance || null,
+    duration_min: w.durationMin || null,
+    sets: w.sets || [],
+  };
+
   if (isNew) {
+    const { data } = await sb.from('workouts').insert(dbRow).select().single();
+    if (data) w.id = data.id;
+    w.likes = [];
     state.workouts.push(w);
-    // Streak
     const today = todayStr();
     if (state.lastWorkoutDate !== today) {
       const y = new Date(Date.now() - 86400000).toISOString().slice(0,10);
@@ -2683,10 +2835,12 @@ function commitWorkout(w) {
       state.lastWorkoutDate = today;
     }
   } else {
+    await sb.from('workouts').update(dbRow).eq('id', w.id);
+    w.likes = state.workouts[existingIdx]?.likes || [];
     state.workouts[existingIdx] = w;
   }
   editingWorkoutId = null;
-  saveState();
+  await saveState();
   render();
   toast(isNew ? t('t_recorded') : t('t_updated'));
 }
@@ -2728,10 +2882,10 @@ function editWorkout(id) {
   }
 }
 
-function deleteWorkout(id) {
+async function deleteWorkout(id) {
   if (!confirm(t('t_confirm_del_record'))) return;
+  await sb.from('workouts').delete().eq('id', id);
   state.workouts = state.workouts.filter(x => x.id !== id);
-  saveState();
   render();
   toast(t('t_deleted'));
 }
@@ -2808,13 +2962,12 @@ $('inPass').addEventListener('keypress', e => { if (e.key === 'Enter') handleLog
 // ===================================================================
 // INIT
 // ===================================================================
-(function init() {
+(async function init() {
   applyI18n();
   switchLoginMode('signup');
-  const session = localStorage.getItem(SESSION_KEY);
-  const users = loadUsers();
-  if (session && users[session]) {
-    enterApp(session);
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await enterApp();
   } else {
     $('loginScreen').classList.add('active');
   }

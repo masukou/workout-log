@@ -607,6 +607,28 @@
   .like-btn.liked { border-color: #ff6b7a; color: #ff6b7a; background: #fff1f2; }
   .like-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .notif-bell { position: relative; font-size: 20px; cursor: pointer; }
+  .notif-badge {
+    position: absolute; top: -4px; right: -6px;
+    background: #ff4757; color: #fff; font-size: 10px; font-weight: 900;
+    min-width: 16px; height: 16px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 3px;
+  }
+  .notif-panel {
+    position: fixed; top: 50px; right: 8px; left: 8px; max-height: 60vh;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12); z-index: 999; overflow-y: auto;
+    display: none; padding: 8px 0;
+  }
+  .notif-panel.open { display: block; }
+  .notif-item {
+    padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item .notif-time { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
   .interval-timer {
     position: sticky;
     top: 0;
@@ -731,8 +753,10 @@
   <div class="header-stats">
     <div class="streak">🔥 <span id="hStreak">0</span></div>
     <div id="hToday" style="color:var(--muted);font-weight:700;font-size:12px"></div>
+    <div class="notif-bell" onclick="toggleNotifPanel()">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></div>
   </div>
 </header>
+<div class="notif-panel" id="notifPanel"></div>
 
 <main>
 
@@ -1173,6 +1197,8 @@ const I18N = {
     t_user_taken: 'このユーザー名は使われています',
     t_user_not_found: 'ユーザーが見つかりません',
     t_wrong_pass: 'パスワードが違います',
+    notif_liked: 'さんがあなたの記録にいいねしました',
+    notif_empty: '通知はありません',
     t_confirm_logout: 'ログアウトしますか?',
     t_confirm_reset: 'すべてのルーティン・履歴をリセットします。よろしいですか?',
     t_reset_done: 'リセットしました',
@@ -1323,6 +1349,8 @@ const I18N = {
     t_user_taken: 'Username already taken',
     t_user_not_found: 'User not found',
     t_wrong_pass: 'Wrong password',
+    notif_liked: ' liked your workout',
+    notif_empty: 'No notifications',
     t_confirm_logout: 'Log out?',
     t_confirm_reset: 'This will reset all routines and history. Continue?',
     t_reset_done: 'Reset complete',
@@ -1759,14 +1787,99 @@ async function enterApp() {
   $('loginScreen').classList.remove('active');
   checkNewDay();
   render();
+  subscribeToLikes();
+  loadNotifications();
+}
+
+let notifications = [];
+let likeSubscription = null;
+
+function subscribeToLikes() {
+  if (likeSubscription) likeSubscription.unsubscribe();
+  likeSubscription = sb.channel('likes-realtime')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'likes' }, async (payload) => {
+      const like = payload.new;
+      if (like.user_id === currentUserId) return;
+      const myWorkout = state.workouts.find(w => w.id === like.workout_id);
+      if (!myWorkout) return;
+      const { data: profile } = await sb.from('profiles').select('username').eq('id', like.user_id).single();
+      const name = profile?.username || '???';
+      const notif = { id: like.id, userName: name, workoutTitle: myWorkout.title || '', time: new Date().toISOString() };
+      notifications.unshift(notif);
+      updateNotifBadge();
+      toast(`❤️ ${name}${t('notif_liked')}`);
+    })
+    .subscribe();
+}
+
+async function loadNotifications() {
+  const wIds = (state?.workouts || []).map(w => w.id);
+  if (!wIds.length) return;
+  const { data: recentLikes } = await sb.from('likes').select('*').in('workout_id', wIds).neq('user_id', currentUserId).order('created_at', { ascending: false }).limit(20);
+  if (!recentLikes || !recentLikes.length) return;
+  const uids = [...new Set(recentLikes.map(l => l.user_id))];
+  const { data: profiles } = await sb.from('profiles').select('id,username').in('id', uids);
+  const pMap = {};
+  (profiles || []).forEach(p => { pMap[p.id] = p.username; });
+  notifications = recentLikes.map(l => {
+    const w = state.workouts.find(w => w.id === l.workout_id);
+    return { id: l.id, userName: pMap[l.user_id] || '???', workoutTitle: w?.title || '', time: l.created_at };
+  });
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  const badge = $('notifBadge');
+  const count = notifications.length;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function toggleNotifPanel() {
+  const panel = $('notifPanel');
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) {
+    if (!notifications.length) {
+      panel.innerHTML = `<div class="notif-item" style="justify-content:center;color:var(--muted)">${t('notif_empty')}</div>`;
+    } else {
+      panel.innerHTML = notifications.map(n => {
+        const ago = timeAgo(n.time);
+        return `<div class="notif-item">
+          <span>❤️</span>
+          <span><b>${escapeHtml(n.userName)}</b>${t('notif_liked')}${n.workoutTitle ? ' — ' + escapeHtml(n.workoutTitle) : ''}</span>
+          <span class="notif-time">${ago}</span>
+        </div>`;
+      }).join('');
+    }
+    $('notifBadge').style.display = 'none';
+  }
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return currentLang === 'en' ? 'now' : '今';
+  if (min < 60) return currentLang === 'en' ? min + 'm' : min + '分前';
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return currentLang === 'en' ? hr + 'h' : hr + '時間前';
+  const d = Math.floor(hr / 24);
+  return currentLang === 'en' ? d + 'd' : d + '日前';
 }
 
 async function logout() {
   if (!confirm(t('t_confirm_logout'))) return;
+  if (likeSubscription) likeSubscription.unsubscribe();
+  notifications = [];
   await sb.auth.signOut();
   currentUser = null;
   currentUserId = null;
   state = null;
+  $('notifBadge').style.display = 'none';
+  $('notifPanel').classList.remove('open');
   $('loginScreen').classList.add('active');
   $('inUser').value = '';
   $('inPass').value = '';
@@ -2962,6 +3075,14 @@ $('inPass').addEventListener('keypress', e => { if (e.key === 'Enter') handleLog
 // ===================================================================
 // INIT
 // ===================================================================
+document.addEventListener('click', (e) => {
+  const panel = $('notifPanel');
+  const bell = document.querySelector('.notif-bell');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !bell.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
 (async function init() {
   applyI18n();
   switchLoginMode('signup');

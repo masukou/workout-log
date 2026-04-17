@@ -809,12 +809,12 @@
 <div class="screen" id="loginScreen">
   <div class="login-body">
     <div style="font-size:64px">🏃‍♂️</div>
-    <div class="login-title" data-i18n="app_title">運動ログ</div>
-    <div class="login-sub" id="loginSub">仲間と一緒に運動を続けよう</div>
-    <input class="input" id="inUser" data-i18n-ph="ph_user" placeholder="ユーザー名" maxlength="20">
-    <input class="input" id="inPass" type="password" data-i18n-ph="ph_pass" placeholder="パスワード(4文字以上)">
-    <button class="btn" id="loginBtn">はじめる</button>
-    <button class="login-switch" id="loginSwitch">すでにアカウントをお持ちの方</button>
+    <div class="login-title" data-i18n="app_title">Workout Log</div>
+    <div class="login-sub" id="loginSub" data-i18n="login_sub_signup">仲間と一緒に運動を続けよう</div>
+    <button class="btn" id="googleLoginBtn" onclick="loginWithGoogle()" style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.01 24.01 0 000 21.56l7.98-6.19z"/><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      <span data-i18n="btn_google">Googleでログイン</span>
+    </button>
     <div style="margin-top:16px;text-align:center">
       <select onchange="setLang(this.value)" style="padding:8px 16px;border-radius:10px;border:2px solid var(--border);font-size:14px;font-weight:700;background:#fff">
         <option value="ja" selected>🇯🇵 日本語</option>
@@ -1208,8 +1208,7 @@ const I18N = {
     login_sub_login: 'おかえりなさい',
     ph_user: 'ユーザー名',
     ph_pass: 'パスワード(4文字以上)',
-    btn_start: 'はじめる',
-    btn_login: 'ログイン',
+    btn_google: 'Googleでログイン',
     switch_to_login: 'すでにアカウントをお持ちの方',
     switch_to_signup: '新しくアカウントを作る',
     tab_home: 'ホーム',
@@ -1401,8 +1400,7 @@ const I18N = {
     login_sub_login: 'Welcome back',
     ph_user: 'Username',
     ph_pass: 'Password (4+ chars)',
-    btn_start: 'Get started',
-    btn_login: 'Log in',
+    btn_google: 'Sign in with Google',
     switch_to_login: 'I already have an account',
     switch_to_signup: 'Create a new account',
     tab_home: 'Home',
@@ -1607,7 +1605,6 @@ function setLang(lang) {
   });
   applyI18n();
   if (state) render();
-  switchLoginMode(loginMode);
 }
 function applyI18n() {
   document.documentElement.lang = currentLang;
@@ -1655,7 +1652,6 @@ const DEFAULT_USER_STATE = () => ({
 // ===================================================================
 let currentUser = null;
 let state = null;
-let loginMode = 'signup';
 let rankSort = 'today';
 
 // Record session state
@@ -1942,29 +1938,14 @@ function openExerciseHistory(exerciseId) {
 // ===================================================================
 // AUTH
 // ===================================================================
-async function handleLogin() {
-  const user = $('inUser').value.trim();
-  const pass = $('inPass').value;
-  if (!user || !pass) return toast(t('t_input_required'));
-  if (user.length < 2) return toast(t('t_user_min'));
-  if (pass.length < 4) return toast(t('t_pass_min'));
-
-  const email = user.toLowerCase().replace(/[^a-z0-9]/g, '_') + '@workout.app';
-
-  if (loginMode === 'signup') {
-    const { data: existing } = await sb.from('profiles').select('id').eq('username', user).maybeSingle();
-    if (existing) return toast(t('t_user_taken'));
-    const { error } = await sb.auth.signUp({
-      email,
-      password: pass,
-      options: { data: { username: user } },
-    });
-    if (error) return toast(error.message);
-  } else {
-    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) return toast(t('t_wrong_pass'));
-  }
-  await enterApp();
+async function loginWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+    },
+  });
+  if (error) toast(error.message);
 }
 
 async function enterApp() {
@@ -1972,8 +1953,18 @@ async function enterApp() {
   if (!user) return;
   currentUserId = user.id;
 
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
-  if (!profile) return;
+  let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (!profile) {
+    const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+    const avatar = user.user_metadata?.avatar_url ? null : '🐻';
+    await sb.from('profiles').upsert({
+      id: user.id,
+      username: displayName,
+      avatar: avatar,
+    });
+    profile = (await sb.from('profiles').select('*').eq('id', user.id).single()).data;
+    if (!profile) return;
+  }
   currentUser = profile.username;
 
   const { data: routines } = await sb.from('routines').select('*').eq('user_id', user.id).order('created_at');
@@ -2139,22 +2130,6 @@ async function logout() {
   $('notifBadge').style.display = 'none';
   $('notifPanel').classList.remove('open');
   $('loginScreen').classList.add('active');
-  $('inUser').value = '';
-  $('inPass').value = '';
-  switchLoginMode('signup');
-}
-
-function switchLoginMode(m) {
-  loginMode = m;
-  if (m === 'signup') {
-    $('loginSub').textContent = t('login_sub_signup');
-    $('loginBtn').textContent = t('btn_start');
-    $('loginSwitch').textContent = t('switch_to_login');
-  } else {
-    $('loginSub').textContent = t('login_sub_login');
-    $('loginBtn').textContent = t('btn_login');
-    $('loginSwitch').textContent = t('switch_to_signup');
-  }
 }
 
 async function resetData() {
@@ -3937,9 +3912,6 @@ $('rankSeg').addEventListener('click', e => {
   renderRanking();
 });
 
-$('loginBtn').addEventListener('click', handleLogin);
-$('loginSwitch').addEventListener('click', () => switchLoginMode(loginMode === 'signup' ? 'login' : 'signup'));
-$('inPass').addEventListener('keypress', e => { if (e.key === 'Enter') handleLogin(); });
 
 // ===================================================================
 // INIT
@@ -3957,7 +3929,6 @@ document.addEventListener('click', (e) => {
 
 (async function init() {
   applyI18n();
-  switchLoginMode('signup');
   checkNewsBadge();
   const { data: { session } } = await sb.auth.getSession();
   if (session) {

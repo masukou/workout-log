@@ -2591,7 +2591,8 @@ async function renderTimeline(profiles) {
             <span style="font-size:11px;color:var(--muted)">${w.date}</span>
           </div>
           <div style="margin-top:2px">${iconFor(w.type)} ${escapeHtml(w.title || '')}${w.gps_verified ? `<span class="verified-badge">✓ ${t('gps_verified')}</span>` : ''}</div>
-          <div style="font-size:12px;color:var(--muted)">${escapeHtml(summary)}${detailHtml ? ' ▼' : ''}</div>
+          <div style="font-size:12px;color:var(--muted)">${escapeHtml(summary)}</div>
+          ${detailHtml ? `<div style="font-size:11px;color:var(--accent);font-weight:800;margin-top:3px">▶ ${currentLang === 'en' ? 'Tap to view details' : '詳細を見る'}</div>` : ''}
         </div>
         ${likeBtn}${likeInfo}
       </div>
@@ -3643,18 +3644,27 @@ function startGps() {
   $('gpsStartBtn').style.display = 'none';
   $('gpsStopBtn').style.display = '';
   $('gpsTracker').classList.add('tracking');
+  $('gpsPace').textContent = currentLang === 'en' ? 'Acquiring GPS...' : 'GPS取得中...';
 
   gpsTimerInterval = setInterval(updateGpsTimer, 1000);
 
   gpsWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
-      if (accuracy > 50) return;
-      gpsPositions.push({ lat: latitude, lng: longitude, time: Date.now() });
+      if (accuracy > 200) return;
+      gpsPositions.push({ lat: latitude, lng: longitude, acc: accuracy, time: Date.now() });
       updateGpsDisplay();
     },
-    (err) => { console.error('GPS error', err); },
-    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+    (err) => {
+      console.error('GPS error', err);
+      if (err.code === 1) {
+        toast(currentLang === 'en' ? 'Location permission denied' : '位置情報の許可が必要です');
+        stopGps();
+      } else if (err.code === 2) {
+        $('gpsPace').textContent = currentLang === 'en' ? 'GPS unavailable, retrying...' : 'GPS取得できません。リトライ中...';
+      }
+    },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
   );
 }
 
@@ -3662,6 +3672,8 @@ function stopGps() {
   if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
   if (gpsTimerInterval) { clearInterval(gpsTimerInterval); gpsTimerInterval = null; }
   $('gpsStopBtn').style.display = 'none';
+  $('gpsStartBtn').style.display = '';
+  $('gpsStartBtn').textContent = currentLang === 'en' ? '📍 Restart GPS' : '📍 GPS再開';
   $('gpsTracker').classList.remove('tracking');
 
   const dist = calcGpsDistance();
@@ -3670,6 +3682,11 @@ function stopGps() {
     gpsUsed = true;
     $('cardioDist').value = dist.toFixed(2);
     $('cardioTime').value = elapsed || 1;
+    $('gpsPace').textContent = currentLang === 'en' ? '✓ Distance applied' : '✓ 距離を反映しました';
+  } else {
+    $('gpsPace').textContent = gpsPositions.length > 0
+      ? (currentLang === 'en' ? 'Distance too short' : '距離が短すぎます')
+      : (currentLang === 'en' ? 'No GPS data received' : 'GPSデータを取得できませんでした');
   }
 }
 
@@ -3680,8 +3697,16 @@ function cancelCardio() {
 
 function calcGpsDistance() {
   let total = 0;
-  for (let i = 1; i < gpsPositions.length; i++) {
-    total += haversine(gpsPositions[i - 1], gpsPositions[i]);
+  let lastValid = null;
+  for (let i = 0; i < gpsPositions.length; i++) {
+    const p = gpsPositions[i];
+    if (!lastValid) { lastValid = p; continue; }
+    const d = haversine(lastValid, p);
+    const dt = (p.time - lastValid.time) / 1000;
+    const speed = dt > 0 ? (d * 1000) / dt : 0;
+    if (speed > 15) continue;
+    total += d;
+    lastValid = p;
   }
   return total;
 }
@@ -3702,7 +3727,9 @@ function updateGpsDisplay() {
     const pace = elapsed / dist;
     const pm = Math.floor(pace);
     const ps = Math.round((pace - pm) * 60);
-    $('gpsPace').textContent = `⏱ ${pm}:${String(ps).padStart(2,'0')} /km`;
+    $('gpsPace').textContent = `⏱ ${pm}:${String(ps).padStart(2,'0')} /km · 📡${gpsPositions.length}`;
+  } else {
+    $('gpsPace').textContent = `📡 ${gpsPositions.length} ${currentLang === 'en' ? 'points' : 'ポイント取得'}`;
   }
 }
 

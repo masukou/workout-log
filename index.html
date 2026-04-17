@@ -1787,6 +1787,10 @@ function $(id) { return document.getElementById(id); }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function avatarHtml(avatar, size) {
+  if (avatar && avatar.startsWith('http')) return `<img src="${escapeHtml(avatar)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">`;
+  return `<span style="font-size:${size}px">${avatar || '🐻'}</span>`;
+}
 function wUnit() { return weightUnit === 'lbs' ? 'lbs' : 'kg'; }
 function kgToLbs(kg) { return kg * 2.20462; }
 function lbsToKg(lbs) { return lbs * 0.453592; }
@@ -2084,7 +2088,7 @@ async function enterApp() {
     if (!chosenName || !chosenName.trim()) return sb.auth.signOut();
     chosenName = chosenName.trim().slice(0, MAX_NAME_LEN);
     if (hasProfanity(chosenName)) { toast(t('name_profanity')); return sb.auth.signOut(); }
-    const avatar = '🐻';
+    const avatar = user.user_metadata?.avatar_url || '🐻';
     await sb.from('profiles').upsert({
       id: user.id,
       username: chosenName,
@@ -2092,6 +2096,11 @@ async function enterApp() {
     });
     profile = (await sb.from('profiles').select('*').eq('id', user.id).single()).data;
     if (!profile) return;
+  }
+  const googleAvatar = user.user_metadata?.avatar_url;
+  if (googleAvatar && (!profile.avatar || !profile.avatar.startsWith('http'))) {
+    await sb.from('profiles').update({ avatar: googleAvatar }).eq('id', user.id);
+    profile.avatar = googleAvatar;
   }
   currentUser = profile.username;
 
@@ -2618,7 +2627,7 @@ async function renderRanking() {
     const dayUnit = currentLang === 'en' ? 'd' : '日';
     return `<div class="rank-item ${u.name===currentUser?'me':''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i<3?'top':''}">${medal}</div>
-      <div class="rank-avatar">${u.avatar||'🐻'}</div>
+      <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
@@ -2707,7 +2716,7 @@ async function renderTimeline(profiles) {
       <div class="hist-head" onclick="toggleHist('tl_${w.id}')">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:18px">${avatar}</span>
+            ${avatarHtml(avatar, 24)}
             <span style="font-weight:700;font-size:13px">${escapeHtml(userName)}</span>
             <span style="font-size:11px;color:var(--muted)">${w.date}</span>
           </div>
@@ -2793,7 +2802,7 @@ async function showUserDetail(userId) {
   const totalLikes = likes.length;
   $('userDetailBody').innerHTML = `
     <div style="text-align:center;padding:12px 0">
-      <div style="font-size:64px">${s.avatar||'🐻'}</div>
+      <div>${avatarHtml(s.avatar, 64)}</div>
       <div style="font-size:22px;font-weight:900;margin-top:4px">${escapeHtml(name)}</div>
       <div style="color:var(--muted);font-size:12px">${t('registered')} ${s.createdAt||'-'} · ❤️ ${totalLikes}</div>
     </div>
@@ -2966,7 +2975,7 @@ async function showGroupDetail(groupId) {
     const vol = formatVolume(u.stats.volume);
     return `<div class="rank-item ${u.id === currentUserId ? 'me' : ''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i < 3 ? 'top' : ''}">${medal}</div>
-      <div class="rank-avatar">${u.avatar}</div>
+      <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(u.name)}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · 💪${vol}</div>
@@ -3152,10 +3161,10 @@ async function showBattleDetail(battleId) {
     </div>
 
     <div class="section-title">${groupA?.icon} ${escapeHtml(groupA?.name || '?')}</div>
-    ${breakA.map(m => `<div class="rank-item"><div class="rank-avatar">${m.avatar}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
+    ${breakA.map(m => `<div class="rank-item"><div class="rank-avatar">${avatarHtml(m.avatar, 36)}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
 
     <div class="section-title">${groupB?.icon} ${escapeHtml(groupB?.name || '?')}</div>
-    ${breakB.map(m => `<div class="rank-item"><div class="rank-avatar">${m.avatar}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
+    ${breakB.map(m => `<div class="rank-item"><div class="rank-avatar">${avatarHtml(m.avatar, 36)}</div><div class="rank-info"><div class="rank-name">${escapeHtml(m.name)}</div></div><div style="font-weight:800">${fmtScore(m.val)}</div></div>`).join('')}
   `;
 
   $('battleDetailBody').innerHTML = html;

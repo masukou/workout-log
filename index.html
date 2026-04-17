@@ -920,6 +920,12 @@
     <div id="routineManageList"></div>
     <button class="btn secondary small" style="margin-top:8px" onclick="openRoutineEditor()" data-i18n="new_routine">+ 新しいルーティン</button>
 
+    <div class="section-title" data-i18n="sec_weight_unit">重量単位 / Weight Unit</div>
+    <select class="wunit-sel" onchange="setWeightUnit(this.value)" style="width:100%;padding:10px 14px;border-radius:12px;border:2px solid var(--border);font-size:14px;font-weight:700;background:#fff">
+      <option value="kg">🏋️ kg (キログラム)</option>
+      <option value="lbs">🏋️ lbs (ポンド)</option>
+    </select>
+
     <div class="section-title" data-i18n="sec_language">言語 / Language</div>
     <select id="langSelect" onchange="setLang(this.value)" style="width:100%;padding:10px 14px;border-radius:12px;border:2px solid var(--border);font-size:14px;font-weight:700;background:#fff">
       <option value="ja">🇯🇵 日本語</option>
@@ -1069,9 +1075,9 @@
     <div id="cfgWeightRow" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="cfg_weight">重量 (kg)</div>
       <div class="stepper">
-        <button onclick="cfgStep('weight',-2.5)">−</button>
+        <button id="cfgWMinus" onclick="cfgStep('weight',weightUnit==='lbs'?-5:-2.5)">−</button>
         <input type="number" id="cfgWeight" value="20" step="0.5">
-        <button onclick="cfgStep('weight',2.5)">+</button>
+        <button id="cfgWPlus" onclick="cfgStep('weight',weightUnit==='lbs'?5:2.5)">+</button>
       </div>
     </div>
 
@@ -1211,6 +1217,8 @@ const PRESET_EXERCISES = [
 // ===================================================================
 const LANG_KEY = 'undokiroku_lang_v1';
 let currentLang = localStorage.getItem(LANG_KEY) || 'ja';
+const WUNIT_KEY = 'undokiroku_wunit_v1';
+let weightUnit = localStorage.getItem(WUNIT_KEY) || 'kg';
 
 const I18N = {
   ja: {
@@ -1268,6 +1276,7 @@ const I18N = {
     sec_profile: 'プロフィール',
     sec_routine_manage: 'マイルーティン管理',
     sec_account: 'アカウント',
+    sec_weight_unit: '重量単位 / Weight Unit',
     sec_language: '言語 / Language',
     sec_achievements: '🎖 達成ステータス',
     sec_recent: '最近の記録',
@@ -1313,7 +1322,7 @@ const I18N = {
     cfg_record_method: '記録方法',
     cfg_distance: '距離(km)',
     cfg_duration: '時間(分)',
-    cfg_weight: '重量 (kg)',
+    get cfg_weight() { return `重量 (${wUnit()})`; },
     cfg_reps: '回数',
     cfg_time_sec: '時間 (秒)',
     cfg_duration_min: '時間 (分)',
@@ -1357,15 +1366,15 @@ const I18N = {
     volume: 'ボリューム',
     trend: '📈 推移',
     trend_times: (n) => `${n}回`,
-    status_weight_up: (d) => `重量UP +${d}kg`,
+    status_weight_up: (d) => `重量UP +${d}${wUnit()}`,
     status_overcame: (n) => `+${n}回 超え`,
-    status_challenge: '次回 +2.5kg 挑戦中',
+    get status_challenge() { return `次回 +${weightUnit === 'lbs' ? '5lbs' : '2.5kg'} 挑戦中`; },
     type_weight: '重量',
     type_bodyweight: '自重',
     type_time: '時間',
     type_cardio: '有酸素',
     category: { '胸':'胸','背中':'背中','脚':'脚','肩':'肩','腕':'腕','体幹':'体幹','有酸素':'有酸素','カスタム':'カスタム' },
-    unit_kg: 'kg', unit_reps: '回', unit_sec: '秒', unit_min: '分', unit_km: 'km',
+    get unit_kg() { return wUnit(); }, unit_reps: '回', unit_sec: '秒', unit_min: '分', unit_km: 'km',
     t_input_required: '入力してください',
     t_user_min: 'ユーザー名は2文字以上',
     t_pass_min: 'パスワードは4文字以上',
@@ -1473,6 +1482,7 @@ const I18N = {
     sec_profile: 'Profile',
     sec_routine_manage: 'Manage Routines',
     sec_account: 'Account',
+    sec_weight_unit: 'Weight Unit / 重量単位',
     sec_language: 'Language / 言語',
     sec_achievements: '🎖 Achievements',
     sec_recent: 'Recent Records',
@@ -1518,7 +1528,7 @@ const I18N = {
     cfg_record_method: 'Record by',
     cfg_distance: 'Distance (km)',
     cfg_duration: 'Duration (min)',
-    cfg_weight: 'Weight (kg)',
+    get cfg_weight() { return `Weight (${wUnit()})`; },
     cfg_reps: 'Reps',
     cfg_time_sec: 'Time (sec)',
     cfg_duration_min: 'Duration (min)',
@@ -1562,15 +1572,15 @@ const I18N = {
     volume: 'Volume',
     trend: '📈 Trend',
     trend_times: (n) => `${n} sessions`,
-    status_weight_up: (d) => `Weight UP +${d}kg`,
+    status_weight_up: (d) => `Weight UP +${d}${wUnit()}`,
     status_overcame: (n) => `+${n} reps PR`,
-    status_challenge: 'Next: +2.5kg challenge',
+    get status_challenge() { return `Next: +${weightUnit === 'lbs' ? '5lbs' : '2.5kg'} challenge`; },
     type_weight: 'Weight',
     type_bodyweight: 'Bodyweight',
     type_time: 'Time',
     type_cardio: 'Cardio',
     category: { '胸':'Chest','背中':'Back','脚':'Legs','肩':'Shoulders','腕':'Arms','体幹':'Core','有酸素':'Cardio','カスタム':'Custom' },
-    unit_kg: 'kg', unit_reps: ' reps', unit_sec: 's', unit_min: ' min', unit_km: 'km',
+    get unit_kg() { return wUnit(); }, unit_reps: ' reps', unit_sec: 's', unit_min: ' min', unit_km: 'km',
     t_input_required: 'Please fill in both fields',
     t_user_min: 'Username must be 2+ chars',
     t_pass_min: 'Password must be 4+ chars',
@@ -1660,6 +1670,7 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-title]').forEach(el => {
     el.title = t(el.getAttribute('data-i18n-title'));
   });
+  document.querySelectorAll('select.wunit-sel').forEach(s => s.value = weightUnit);
 }
 
 // ===================================================================
@@ -1713,6 +1724,18 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function $(id) { return document.getElementById(id); }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function wUnit() { return weightUnit === 'lbs' ? 'lbs' : 'kg'; }
+function kgToLbs(kg) { return kg * 2.20462; }
+function lbsToKg(lbs) { return lbs * 0.453592; }
+function displayW(kg) { return weightUnit === 'lbs' ? Math.round(kgToLbs(kg) * 10) / 10 : kg; }
+function toKg(val) { return weightUnit === 'lbs' ? lbsToKg(val) : val; }
+function displayWStr(kg) { const v = displayW(kg); return v % 1 === 0 ? v.toString() : v.toFixed(1); }
+function setWeightUnit(u) {
+  weightUnit = u;
+  localStorage.setItem(WUNIT_KEY, u);
+  document.querySelectorAll('select.wunit-sel').forEach(s => s.value = u);
+  if (state) render();
 }
 function toast(msg) {
   const t = $('toast');
@@ -1781,9 +1804,10 @@ function computeTodayStats(userState) {
 }
 
 function formatVolume(v) {
-  if (!v) return '0kg';
-  if (v >= 1000) return (v/1000).toFixed(1) + 't';
-  return Math.round(v) + 'kg';
+  if (!v) return '0' + wUnit();
+  const dv = displayW(v);
+  if (dv >= 1000) return (dv/1000).toFixed(1) + (weightUnit === 'lbs' ? 'k lbs' : 't');
+  return Math.round(dv) + wUnit();
 }
 function formatCardio(dist, dur) {
   const parts = [];
@@ -1844,8 +1868,9 @@ function computeExerciseStatus(sessions) {
   if (!latestTop || !prevTop) return null;
 
   if (latestTop.weight > prevTop.weight) {
-    const diff = (latestTop.weight - prevTop.weight).toFixed(1).replace(/\.0$/, '');
-    return { status: 'weight_up', icon: '🏆', text: t('status_weight_up', diff) };
+    const diff = displayW(latestTop.weight - prevTop.weight);
+    const diffStr = (diff % 1 === 0 ? diff.toString() : diff.toFixed(1).replace(/\.0$/, ''));
+    return { status: 'weight_up', icon: '🏆', text: t('status_weight_up', diffStr) };
   }
   if (latestTop.weight === prevTop.weight && latestTop.reps > prevTop.reps) {
     return { status: 'overcame', icon: '⬆️', text: t('status_overcame', latestTop.reps - prevTop.reps) };
@@ -1897,8 +1922,8 @@ function buildHistoryChart(sessions, ex) {
       label = v + t('unit_sec');
     } else {
       const top = getTopSet(sess.sets);
-      v = top ? top.weight : 0;
-      label = v + 'kg';
+      v = top ? displayW(top.weight) : 0;
+      label = v + wUnit();
     }
     return { v, label, date: sess.date };
   });
@@ -1956,9 +1981,9 @@ function openExerciseHistory(exerciseId) {
           return `<div style="font-size:12px;color:var(--muted)">${i+1}. ${parts.join(' / ') || '-'}</div>`;
         }
         if (ex?.type === 'time') return `<div style="font-size:12px;color:var(--muted)">${i+1}. ${s.durationSec||0}${t('unit_sec')}</div>`;
-        return `<div style="font-size:12px;color:var(--muted)">${i+1}. ${s.weight||0}kg × ${s.reps||0}${t('unit_reps')}</div>`;
+        return `<div style="font-size:12px;color:var(--muted)">${i+1}. ${displayWStr(s.weight||0)}${wUnit()} × ${s.reps||0}${t('unit_reps')}</div>`;
       }).join('');
-      const topHtml = top ? `${t('best')} ${top.weight}kg × ${top.reps}${t('unit_reps')}` : '';
+      const topHtml = top ? `${t('best')} ${displayWStr(top.weight)}${wUnit()} × ${top.reps}${t('unit_reps')}` : '';
       return `<div class="eh-session">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:800">${sess.date}</div>
@@ -2269,7 +2294,7 @@ function renderMilestones() {
   const wLabel = currentLang === 'en' ? wCurr.en : wCurr.ja;
   const wPct = wNext ? Math.min(100, ((totalVol - wCurr.kg) / (wNext.kg - wCurr.kg)) * 100) : 100;
   const wNextLabel = wNext ? (currentLang === 'en' ? wNext.en : wNext.ja) : '';
-  const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol.toFixed(0) + 'kg';
+  const volStr = formatVolume(totalVol);
 
   html += `<div class="milestone-card">
     <div class="ms-icon">${wCurr.icon}</div>
@@ -2277,7 +2302,7 @@ function renderMilestones() {
     <div class="ms-title">${wLabel}</div>
     <div class="ms-sub">${volStr} ${currentLang === 'en' ? 'lifted so far' : '持ち上げた'}</div>
     <div class="ms-bar"><div class="ms-fill weight" style="width:${wPct}%"></div></div>
-    ${wNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${wNext.icon} ${wNextLabel} (${wNext.kg >= 1000 ? (wNext.kg/1000)+'t' : wNext.kg+'kg'})</div>` : ''}
+    ${wNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${wNext.icon} ${wNextLabel} (${formatVolume(wNext.kg)})</div>` : ''}
   </div>`;
 
   // Distance milestone
@@ -2422,7 +2447,7 @@ function renderHistItem(w) {
         if (ex?.type === 'bodyweight') return `${s.reps}${t('unit_reps')}`;
         const v = (Number(s.weight)||0) * (Number(s.reps)||0);
         totalVolume += v;
-        return `${s.weight}×${s.reps}`;
+        return `${displayWStr(s.weight)}×${s.reps}`;
       }).join(', ');
       return `<div class="hist-ex-row"><span class="hist-ex-name">${escapeHtml(name)}</span><span class="hist-ex-sets">${escapeHtml(sets)}</span></div>`;
     }).join('');
@@ -2575,7 +2600,7 @@ async function renderTimeline(profiles) {
           if (ex?.type === 'time') return s.reps + t('unit_sec');
           if (ex?.type === 'bodyweight') return s.reps + t('unit_reps');
           vol += (Number(s.weight)||0) * (Number(s.reps)||0);
-          return s.weight + 'kg×' + s.reps;
+          return displayWStr(s.weight) + wUnit() + '×' + s.reps;
         }).join(', ');
         return `<div style="font-size:12px;padding:2px 0"><span style="font-weight:700">${escapeHtml(nm)}</span> <span style="color:var(--muted)">${setsStr}</span></div>`;
       }).join('');
@@ -3109,7 +3134,7 @@ function defaultLabel(ex, it) {
     if (it.cardioMode === 'duration') return `${it.defaultDuration || 20}${M} × ${it.defaultSets || 1}`;
     return `${it.defaultDistance || 3}km × ${it.defaultSets || 1}`;
   }
-  return `${it.defaultWeight || 20}kg × ${it.defaultReps || 10}${R} × ${it.defaultSets || 3}`;
+  return `${displayWStr(it.defaultWeight || 20)}${wUnit()} × ${it.defaultReps || 10}${R} × ${it.defaultSets || 3}`;
 }
 
 function moveItem(i, dir) {
@@ -3201,7 +3226,7 @@ function openConfig(ex, existing, cb) {
     sRow.style.display = '';
     rLbl.textContent = t('cfg_reps');
     hint.textContent = t('cfg_hint_weight');
-    $('cfgWeight').value = existing?.defaultWeight ?? 20;
+    $('cfgWeight').value = displayW(existing?.defaultWeight ?? 20);
     $('cfgReps').value = existing?.defaultReps ?? 10;
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'bodyweight') {
@@ -3269,7 +3294,7 @@ function closeConfig() {
 }
 
 function saveConfig() {
-  const weight = Number($('cfgWeight').value) || 0;
+  const weight = toKg(Number($('cfgWeight').value) || 0);
   const reps = Number($('cfgReps').value) || 0;
   const sets = Math.max(1, Number($('cfgSets').value) || 1);
   const cfg = { defaultSets: sets };
@@ -3406,7 +3431,7 @@ function renderRecord() {
           if (p.durationMin) return `${p.durationMin}${t('unit_min')}`;
           return '';
         }
-        if (ex.type === 'weight') return `${p.weight}kg×${p.reps}`;
+        if (ex.type === 'weight') return `${displayWStr(p.weight)}${wUnit()}×${p.reps}`;
         return `${p.reps}${ex.type==='time'?t('unit_sec'):t('unit_reps')}`;
       }).filter(Boolean).join(', ');
     }
@@ -3453,10 +3478,10 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
       if (parts.length) prevHint = `<div class="set-prev">${PREV} ${parts.join(' ')}</div>`;
     } else if (ex.type === 'weight') {
       let diff = '';
-      if (Number(s.weight) > Number(prev.weight)) diff = `<span class="diff-up">⬆+${(s.weight - prev.weight).toFixed(1).replace(/\.0$/,'')}kg</span>`;
+      if (Number(s.weight) > Number(prev.weight)) diff = `<span class="diff-up">⬆+${displayWStr(s.weight - prev.weight)}${wUnit()}</span>`;
       else if (Number(s.weight) === Number(prev.weight) && Number(s.reps) > Number(prev.reps)) diff = `<span class="diff-up">⬆+${s.reps - prev.reps}${t('unit_reps')}</span>`;
       else if (Number(s.weight) === Number(prev.weight) && Number(s.reps) === Number(prev.reps)) diff = `<span class="diff-same">=</span>`;
-      prevHint = `<div class="set-prev">${PREV} ${prev.weight}×${prev.reps}${diff}</div>`;
+      prevHint = `<div class="set-prev">${PREV} ${displayWStr(prev.weight)}×${prev.reps}${diff}</div>`;
     } else {
       let diff = '';
       if (Number(s.reps) > Number(prev.reps)) diff = `<span class="diff-up">⬆+${s.reps - prev.reps}</span>`;
@@ -3491,12 +3516,13 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   }
   const isBW = ex.type === 'bodyweight';
   const isTime = ex.type === 'time';
+  const wStep = weightUnit === 'lbs' ? 5 : 2.5;
   const weightField = !isBW && !isTime ? `
     <div class="stepper">
-      <span class="lbl">kg</span>
-      <button onclick="stepSet(${exIdx},${setIdx},'weight',-2.5)">−</button>
-      <input type="number" value="${s.weight}" step="0.5" onchange="setVal(${exIdx},${setIdx},'weight',this.value)">
-      <button onclick="stepSet(${exIdx},${setIdx},'weight',2.5)">+</button>
+      <span class="lbl">${wUnit()}</span>
+      <button onclick="stepSet(${exIdx},${setIdx},'weight',${-wStep})">−</button>
+      <input type="number" value="${displayWStr(s.weight)}" step="${weightUnit === 'lbs' ? 1 : 0.5}" onchange="setValW(${exIdx},${setIdx},this.value)">
+      <button onclick="stepSet(${exIdx},${setIdx},'weight',${wStep})">+</button>
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
   const repsField = `
@@ -3519,11 +3545,19 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
 
 function stepSet(ex, si, field, d) {
   const s = recordCtx.items[ex].sets[si];
-  s[field] = Math.max(0, Number(s[field]||0) + d);
+  if (field === 'weight') {
+    const cur = displayW(Number(s.weight) || 0);
+    s.weight = Math.max(0, toKg(cur + d));
+  } else {
+    s[field] = Math.max(0, Number(s[field]||0) + d);
+  }
   renderRecord();
 }
 function setVal(ex, si, field, v) {
   recordCtx.items[ex].sets[si][field] = Math.max(0, Number(v)||0);
+}
+function setValW(ex, si, v) {
+  recordCtx.items[ex].sets[si].weight = Math.max(0, toKg(Number(v)||0));
 }
 function addSet(idx) {
   const item = recordCtx.items[idx];

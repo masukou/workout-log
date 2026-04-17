@@ -267,7 +267,7 @@
     background: #fff;
     border-radius: 10px;
   }
-  .set-num { font-weight: 800; color: var(--muted); width: 28px; font-size: 13px; }
+  .set-num { font-weight: 800; color: var(--muted); width: 18px; font-size: 11px; flex-shrink: 0; }
   .stepper {
     display: flex;
     align-items: center;
@@ -594,15 +594,18 @@
     background: transparent;
     border: 1.5px solid var(--border);
     border-radius: 20px;
-    padding: 4px 10px;
-    font-size: 12px;
+    padding: 8px 14px;
+    font-size: 14px;
     font-weight: 800;
     color: var(--muted);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     margin-right: 4px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 36px;
   }
   .like-btn.liked { border-color: #ff6b7a; color: #ff6b7a; background: #fff1f2; }
   .like-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -826,9 +829,11 @@
     <div class="streak">🔥 <span id="hStreak">0</span></div>
     <div id="hToday" style="color:var(--muted);font-weight:700;font-size:12px"></div>
     <div class="notif-bell" onclick="toggleNotifPanel()">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></div>
+    <div class="notif-bell" onclick="toggleNewsPanel()">📰<span class="notif-badge" id="newsBadge" style="display:none">!</span></div>
   </div>
 </header>
 <div class="notif-panel" id="notifPanel"></div>
+<div class="notif-panel" id="newsPanel"></div>
 
 <main>
 
@@ -929,11 +934,14 @@
   <div class="screen-head">
     <button class="icon-btn" onclick="cancelRecord()">✕</button>
     <div class="title" id="recordTitle">記録</div>
-    <button class="icon-btn" onclick="addExerciseToRecord()">+</button>
+    <div style="width:32px"></div>
   </div>
   <div class="screen-body" id="recordBody"></div>
   <div class="screen-footer">
-    <button class="btn" onclick="saveRecord()" data-i18n="btn_save_workout">この運動を記録する</button>
+    <div class="row">
+      <button class="btn secondary" onclick="addExerciseToRecord()" data-i18n="add_exercise_btn">+ 種目を追加</button>
+      <button class="btn" onclick="saveRecord()" data-i18n="btn_save_workout">記録する</button>
+    </div>
   </div>
 </div>
 
@@ -1267,7 +1275,8 @@ const I18N = {
     btn_logout: 'ログアウト',
     btn_reset: 'データをリセット',
     btn_save: '保存',
-    btn_save_workout: 'この運動を記録する',
+    add_exercise_btn: '+ 種目を追加',
+    btn_save_workout: '記録する',
     btn_record: '記録する',
     btn_cancel: 'キャンセル',
     btn_delete: '削除',
@@ -1459,7 +1468,8 @@ const I18N = {
     btn_logout: 'Log out',
     btn_reset: 'Reset Data',
     btn_save: 'Save',
-    btn_save_workout: 'Save this workout',
+    add_exercise_btn: '+ Add Exercise',
+    btn_save_workout: 'Save',
     btn_record: 'Record',
     btn_cancel: 'Cancel',
     btn_delete: 'Delete',
@@ -2041,6 +2051,7 @@ function updateNotifBadge() {
 }
 
 function toggleNotifPanel() {
+  $('newsPanel').classList.remove('open');
   const panel = $('notifPanel');
   const isOpen = panel.classList.toggle('open');
   if (isOpen) {
@@ -2057,6 +2068,37 @@ function toggleNotifPanel() {
       }).join('');
     }
     $('notifBadge').style.display = 'none';
+  }
+}
+
+const APP_NEWS = [
+  { date: '2026-04-17', ja: '🎉 グループ機能＆対抗戦を追加！', en: '🎉 Groups & Battles added!' },
+  { date: '2026-04-17', ja: '📍 GPS計測でランニング記録＋認証バッジ', en: '📍 GPS tracking for running + verified badge' },
+  { date: '2026-04-17', ja: '🏆 実世界マイルストーン（シロナガスクジラ何頭分？）', en: '🏆 Real-world milestones (How many blue whales?)' },
+  { date: '2026-04-16', ja: '❤️ タイムラインでいいね＆リアルタイム通知', en: '❤️ Timeline likes & real-time notifications' },
+  { date: '2026-04-16', ja: '🚀 アプリ公開！', en: '🚀 App launched!' },
+];
+
+const NEWS_READ_KEY = 'undokiroku_news_read';
+
+function toggleNewsPanel() {
+  const panel = $('newsPanel');
+  $('notifPanel').classList.remove('open');
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) {
+    panel.innerHTML = APP_NEWS.map(n => `<div class="notif-item">
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap">${n.date}</span>
+      <span style="flex:1">${currentLang === 'en' ? n.en : n.ja}</span>
+    </div>`).join('');
+    localStorage.setItem(NEWS_READ_KEY, APP_NEWS.length.toString());
+    $('newsBadge').style.display = 'none';
+  }
+}
+
+function checkNewsBadge() {
+  const read = parseInt(localStorage.getItem(NEWS_READ_KEY) || '0');
+  if (APP_NEWS.length > read) {
+    $('newsBadge').style.display = 'flex';
   }
 }
 
@@ -3819,16 +3861,20 @@ $('inPass').addEventListener('keypress', e => { if (e.key === 'Enter') handleLog
 // INIT
 // ===================================================================
 document.addEventListener('click', (e) => {
-  const panel = $('notifPanel');
-  const bell = document.querySelector('.notif-bell');
-  if (panel.classList.contains('open') && !panel.contains(e.target) && !bell.contains(e.target)) {
-    panel.classList.remove('open');
+  const bells = document.querySelectorAll('.notif-bell');
+  const panels = [document.getElementById('notifPanel'), document.getElementById('newsPanel')];
+  let clickedBellOrPanel = false;
+  bells.forEach(b => { if (b.contains(e.target)) clickedBellOrPanel = true; });
+  panels.forEach(p => { if (p && p.contains(e.target)) clickedBellOrPanel = true; });
+  if (!clickedBellOrPanel) {
+    panels.forEach(p => { if (p) p.classList.remove('open'); });
   }
 });
 
 (async function init() {
   applyI18n();
   switchLoginMode('signup');
+  checkNewsBadge();
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     await enterApp();

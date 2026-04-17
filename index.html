@@ -2526,22 +2526,64 @@ async function renderTimeline(profiles) {
     const userName = p ? p.username : '???';
     const avatar = p ? (p.avatar || '🐻') : '🐻';
     const isOwn = w.user_id === currentUserId;
-    let body = '';
-    if (w.type === 'strength') body = t('sets_count', (w.sets || []).length);
+    let summary = '';
+    if (w.type === 'strength') summary = t('sets_count', (w.sets || []).length);
     else if (w.type === 'cardio') {
       const parts = [];
       if (w.distance) parts.push(Number(w.distance) + 'km');
       if (w.duration_min) parts.push(Number(w.duration_min) + t('unit_min'));
-      body = parts.join(' · ');
-    } else body = w.note || '';
+      summary = parts.join(' · ');
+    } else summary = w.note || '';
     const wLikes = likes.filter(l => l.workout_id === w.id).map(l => l.user_id);
     const likeCount = wLikes.length;
     const liked = currentUserId && wLikes.includes(currentUserId);
     const likeBtn = isOwn ? '' : `<button class="like-btn ${liked?'liked':''}" onclick="event.stopPropagation();toggleLike('${w.id}',true)">
       ${liked?'❤️':'🤍'} <span>${likeCount||''}</span></button>`;
     const likeInfo = isOwn && likeCount ? `<span style="font-size:12px;color:var(--muted)">❤️ ${likeCount}</span>` : '';
-    return `<div class="hist-item">
-      <div class="hist-head">
+
+    let detailHtml = '';
+    if (w.type === 'strength' && w.sets && w.sets.length) {
+      const byEx = {};
+      const order = [];
+      (w.sets || []).forEach(s => {
+        if (!byEx[s.exerciseId]) { byEx[s.exerciseId] = []; order.push(s.exerciseId); }
+        byEx[s.exerciseId].push(s);
+      });
+      let vol = 0;
+      detailHtml = order.map(exId => {
+        const ex = findExercise(exId);
+        const nm = exName(ex) || exId;
+        const setsStr = byEx[exId].map(s => {
+          if (ex?.type === 'cardio') {
+            const p2 = [];
+            if (s.distance) p2.push(s.distance + 'km');
+            if (s.durationMin) p2.push(s.durationMin + t('unit_min'));
+            return p2.join(' ');
+          }
+          if (ex?.type === 'time') return s.reps + t('unit_sec');
+          if (ex?.type === 'bodyweight') return s.reps + t('unit_reps');
+          vol += (Number(s.weight)||0) * (Number(s.reps)||0);
+          return s.weight + 'kg×' + s.reps;
+        }).join(', ');
+        return `<div style="font-size:12px;padding:2px 0"><span style="font-weight:700">${escapeHtml(nm)}</span> <span style="color:var(--muted)">${setsStr}</span></div>`;
+      }).join('');
+      if (vol > 0) detailHtml += `<div style="font-size:11px;color:var(--muted);margin-top:4px;font-weight:700">💪 ${formatVolume(vol)}</div>`;
+    } else if (w.type === 'cardio') {
+      const parts = [];
+      if (w.distance) parts.push(Number(w.distance) + 'km');
+      if (w.duration_min) parts.push(Number(w.duration_min) + t('unit_min'));
+      if (w.distance && w.duration_min) {
+        const pace = Number(w.duration_min) / Number(w.distance);
+        const pm = Math.floor(pace);
+        const ps = Math.round((pace - pm) * 60);
+        parts.push(`⏱ ${pm}:${String(ps).padStart(2,'0')} /km`);
+      }
+      detailHtml = `<div style="font-size:13px;font-weight:700">${parts.join(' · ')}</div>`;
+    }
+    if (w.note) detailHtml += `<div style="font-size:12px;color:var(--muted);margin-top:4px">📝 ${escapeHtml(w.note)}</div>`;
+
+    return `<div class="hist-item" data-id="tl_${w.id}">
+      <div class="hist-head" onclick="toggleHist('tl_${w.id}')">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:18px">${avatar}</span>
@@ -2549,10 +2591,11 @@ async function renderTimeline(profiles) {
             <span style="font-size:11px;color:var(--muted)">${w.date}</span>
           </div>
           <div style="margin-top:2px">${iconFor(w.type)} ${escapeHtml(w.title || '')}${w.gps_verified ? `<span class="verified-badge">✓ ${t('gps_verified')}</span>` : ''}</div>
-          <div style="font-size:12px;color:var(--muted)">${escapeHtml(body)}</div>
+          <div style="font-size:12px;color:var(--muted)">${escapeHtml(summary)}</div>
         </div>
         ${likeBtn}${likeInfo}
       </div>
+      ${detailHtml ? `<div class="hist-detail" style="display:none;padding:8px 12px;border-top:1px solid var(--border)">${detailHtml}</div>` : ''}
     </div>`;
   }).join('');
 }

@@ -2017,11 +2017,13 @@ async function enterApp() {
 
   let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (!profile) {
-    const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
-    const avatar = user.user_metadata?.avatar_url ? null : '🐻';
+    const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+    const chosenName = prompt(currentLang === 'ja' ? '表示名を入力してください' : 'Enter your display name', defaultName);
+    if (!chosenName || !chosenName.trim()) return sb.auth.signOut();
+    const avatar = '🐻';
     await sb.from('profiles').upsert({
       id: user.id,
-      username: displayName,
+      username: chosenName.trim(),
       avatar: avatar,
     });
     profile = (await sb.from('profiles').select('*').eq('id', user.id).single()).data;

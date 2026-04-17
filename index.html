@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>運動ログ - 仲間と続ける運動習慣</title>
+<title>Workout Log</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -815,9 +815,11 @@
     <input class="input" id="inPass" type="password" data-i18n-ph="ph_pass" placeholder="パスワード(4文字以上)">
     <button class="btn" id="loginBtn">はじめる</button>
     <button class="login-switch" id="loginSwitch">すでにアカウントをお持ちの方</button>
-    <div style="margin-top:16px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-      <button type="button" class="btn secondary small" onclick="setLang('ja')" style="min-width:70px;padding:8px 16px">日本語</button>
-      <button type="button" class="btn secondary small" onclick="setLang('en')" style="min-width:70px;padding:8px 16px">English</button>
+    <div style="margin-top:16px;text-align:center">
+      <select onchange="setLang(this.value)" style="padding:8px 16px;border-radius:10px;border:2px solid var(--border);font-size:14px;font-weight:700;background:#fff">
+        <option value="ja" selected>🇯🇵 日本語</option>
+        <option value="en">🇺🇸 English</option>
+      </select>
     </div>
   </div>
 </div>
@@ -909,10 +911,10 @@
     <button class="btn secondary small" style="margin-top:8px" onclick="openRoutineEditor()" data-i18n="new_routine">+ 新しいルーティン</button>
 
     <div class="section-title" data-i18n="sec_language">言語 / Language</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn secondary small" onclick="setLang('ja')" style="flex:1;min-width:70px">日本語</button>
-      <button class="btn secondary small" onclick="setLang('en')" style="flex:1;min-width:70px">English</button>
-    </div>
+    <select id="langSelect" onchange="setLang(this.value)" style="width:100%;padding:10px 14px;border-radius:12px;border:2px solid var(--border);font-size:14px;font-weight:700;background:#fff">
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="en">🇺🇸 English</option>
+    </select>
 
     <div class="section-title" data-i18n="sec_account">アカウント</div>
     <button class="btn secondary" onclick="logout()" data-i18n="btn_logout">ログアウト</button>
@@ -1201,7 +1203,7 @@ let currentLang = localStorage.getItem(LANG_KEY) || 'ja';
 
 const I18N = {
   ja: {
-    app_title: '運動ログ',
+    app_title: 'Workout Log',
     login_sub_signup: '仲間と一緒に運動を続けよう',
     login_sub_login: 'おかえりなさい',
     ph_user: 'ユーザー名',
@@ -1394,7 +1396,7 @@ const I18N = {
     free_default_title: '筋トレ',
   },
   en: {
-    app_title: 'Movement Log',
+    app_title: 'Workout Log',
     login_sub_signup: 'Keep moving with friends',
     login_sub_login: 'Welcome back',
     ph_user: 'Username',
@@ -1598,12 +1600,22 @@ function catName(c) { return (I18N[currentLang]?.category?.[c]) || c; }
 function setLang(lang) {
   currentLang = lang;
   localStorage.setItem(LANG_KEY, lang);
+  document.querySelectorAll('select').forEach(sel => {
+    if (sel.querySelector('option[value="ja"]') && sel.querySelector('option[value="en"]')) {
+      sel.value = lang;
+    }
+  });
   applyI18n();
   if (state) render();
   switchLoginMode(loginMode);
 }
 function applyI18n() {
   document.documentElement.lang = currentLang;
+  document.querySelectorAll('select').forEach(sel => {
+    if (sel.querySelector('option[value="ja"]') && sel.querySelector('option[value="en"]')) {
+      sel.value = currentLang;
+    }
+  });
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const k = el.getAttribute('data-i18n');
     el.innerHTML = t(k);

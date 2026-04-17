@@ -909,7 +909,7 @@
   <!-- ============ PROFILE ============ -->
   <div class="view" id="viewProfile">
     <div class="section-title" data-i18n="sec_profile">プロフィール</div>
-    <div class="user-badge">👤 <span id="profileName"></span></div>
+    <div class="user-badge" style="display:flex;align-items:center;gap:8px">👤 <span id="profileName"></span> <button onclick="changeDisplayName()" style="font-size:11px;color:var(--secondary);background:none;border:none;font-weight:700">✏️</button></div>
     <div class="stat-grid">
       <div class="stat-box"><div class="lbl" data-i18n="lbl_streak">🔥 ストリーク</div><div class="num" id="pStreak">0</div></div>
       <div class="stat-box"><div class="lbl" data-i18n="lbl_max">🏆 最長</div><div class="num" id="pMaxStreak">0</div></div>
@@ -2181,6 +2181,16 @@ function timeAgo(dateStr) {
   if (hr < 24) return currentLang === 'en' ? hr + 'h' : hr + '時間前';
   const d = Math.floor(hr / 24);
   return currentLang === 'en' ? d + 'd' : d + '日前';
+}
+
+async function changeDisplayName() {
+  const newName = prompt(currentLang === 'ja' ? '新しい表示名を入力' : 'Enter new display name', currentUser);
+  if (!newName || !newName.trim() || newName.trim() === currentUser) return;
+  const { error } = await sb.from('profiles').update({ username: newName.trim() }).eq('id', currentUserId);
+  if (error) { toast('Error: ' + error.message); return; }
+  currentUser = newName.trim();
+  $('profileName').textContent = currentUser;
+  toast(t('t_saved'));
 }
 
 async function logout() {

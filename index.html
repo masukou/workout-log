@@ -932,10 +932,25 @@
       <option value="en">🇺🇸 English</option>
     </select>
 
+    <div class="section-title" data-i18n="privacy_private">ランキング非公開</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700">
+      <input type="checkbox" id="privacyToggle" onchange="togglePrivacy(this.checked)" style="width:20px;height:20px">
+      <span data-i18n="privacy_private">ランキングを非公開にする</span>
+    </label>
+
+    <div class="section-title" data-i18n="sec_blocked_users">ブロック中のユーザー</div>
+    <div id="blockedUsersList"></div>
+
     <div class="section-title" data-i18n="sec_account">アカウント</div>
     <button class="btn secondary" onclick="logout()" data-i18n="btn_logout">ログアウト</button>
     <div style="height:10px"></div>
-    <button class="btn secondary" onclick="resetData()" style="color:var(--danger)" data-i18n="btn_reset">データをリセット</button>
+    <button class="btn secondary" onclick="deleteAccount()" style="color:var(--danger)" data-i18n="delete_account">アカウントを削除</button>
+
+    <div style="margin-top:20px;text-align:center">
+      <button onclick="showTerms()" style="background:none;border:none;color:var(--secondary);font-size:12px;font-weight:700" data-i18n="btn_terms">利用規約</button>
+      <span style="color:var(--muted);margin:0 8px">|</span>
+      <button onclick="showPrivacyPolicy()" style="background:none;border:none;color:var(--secondary);font-size:12px;font-weight:700" data-i18n="btn_privacy">プライバシーポリシー</button>
+    </div>
     <div style="height:40px"></div>
   </div>
 </main>
@@ -1220,6 +1235,12 @@ let currentLang = localStorage.getItem(LANG_KEY) || 'ja';
 const WUNIT_KEY = 'undokiroku_wunit_v1';
 let weightUnit = localStorage.getItem(WUNIT_KEY) || 'kg';
 
+const MAX_NAME_LEN = 20;
+const MAX_GROUP_NAME_LEN = 30;
+const MAX_SUGGESTION_LEN = 500;
+const MAX_NOTE_LEN = 200;
+const MAX_TITLE_LEN = 50;
+
 const I18N = {
   ja: {
     app_title: 'Workout Log',
@@ -1426,6 +1447,26 @@ const I18N = {
     suggestion_status_declined: '見送り',
     suggestion_delete_confirm: 'この提案を削除しますか？',
     suggestion_deleted: '削除しました',
+    report_reason_prompt: '通報の理由を入力してください',
+    report_sent: '通報しました',
+    report_already: 'すでに通報済みです',
+    block_confirm: 'このユーザーをブロックしますか？\nこのユーザーの記録が表示されなくなります。',
+    block_done: 'ブロックしました',
+    unblock_done: 'ブロックを解除しました',
+    btn_report: '通報',
+    btn_block: 'ブロック',
+    btn_unblock: 'ブロック解除',
+    sec_blocked_users: 'ブロック中のユーザー',
+    no_blocked_users: 'ブロック中のユーザーはいません',
+    delete_account: 'アカウントを削除',
+    delete_account_confirm1: 'アカウントを完全に削除しますか？\nすべてのデータが失われます。この操作は取り消せません。',
+    delete_account_confirm2: '本当に削除しますか？最終確認です。',
+    privacy_private: 'ランキングを非公開にする',
+    name_too_long: `名前は${MAX_NAME_LEN}文字以内にしてください`,
+    name_profanity: '不適切な表現が含まれています',
+    rate_limited: '操作が早すぎます。少し待ってください。',
+    btn_terms: '利用規約',
+    btn_privacy: 'プライバシーポリシー',
   },
   en: {
     app_title: 'Workout Log',
@@ -1632,6 +1673,26 @@ const I18N = {
     suggestion_status_declined: 'Declined',
     suggestion_delete_confirm: 'Delete this suggestion?',
     suggestion_deleted: 'Deleted',
+    report_reason_prompt: 'Enter the reason for reporting',
+    report_sent: 'Report submitted',
+    report_already: 'Already reported',
+    block_confirm: 'Block this user?\nTheir records will be hidden from you.',
+    block_done: 'User blocked',
+    unblock_done: 'User unblocked',
+    btn_report: 'Report',
+    btn_block: 'Block',
+    btn_unblock: 'Unblock',
+    sec_blocked_users: 'Blocked Users',
+    no_blocked_users: 'No blocked users',
+    delete_account: 'Delete Account',
+    delete_account_confirm1: 'Permanently delete your account?\nAll data will be lost. This cannot be undone.',
+    delete_account_confirm2: 'Are you absolutely sure? This is final.',
+    privacy_private: 'Hide from rankings',
+    name_too_long: `Name must be ${MAX_NAME_LEN} characters or less`,
+    name_profanity: 'Contains inappropriate language',
+    rate_limited: 'Too fast. Please wait a moment.',
+    btn_terms: 'Terms of Service',
+    btn_privacy: 'Privacy Policy',
   },
 };
 
@@ -1703,6 +1764,7 @@ let state = null;
 let rankSort = 'today';
 
 // Record session state
+let blockedUserIds = new Set();
 let recordCtx = null;        // { routineId?, title, items: [{exerciseId, name, type, sets:[{weight,reps}]}] }
 let editingRoutine = null;   // for editor
 let editingWorkoutId = null; // when editing history
@@ -2018,12 +2080,14 @@ async function enterApp() {
   let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (!profile) {
     const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
-    const chosenName = prompt(currentLang === 'ja' ? '表示名を入力してください' : 'Enter your display name', defaultName);
+    let chosenName = prompt(currentLang === 'ja' ? '表示名を入力してください' : 'Enter your display name', defaultName);
     if (!chosenName || !chosenName.trim()) return sb.auth.signOut();
+    chosenName = chosenName.trim().slice(0, MAX_NAME_LEN);
+    if (hasProfanity(chosenName)) { toast(t('name_profanity')); return sb.auth.signOut(); }
     const avatar = '🐻';
     await sb.from('profiles').upsert({
       id: user.id,
-      username: chosenName.trim(),
+      username: chosenName,
       avatar: avatar,
     });
     profile = (await sb.from('profiles').select('*').eq('id', user.id).single()).data;
@@ -2047,6 +2111,7 @@ async function enterApp() {
     streak: profile.streak || 0,
     maxStreak: profile.max_streak || 0,
     lastWorkoutDate: profile.last_workout_date,
+    isPrivate: profile.is_private || false,
     createdAt: profile.created_at?.slice(0, 10),
     totalWorkouts: (workouts || []).length,
     routines: (routines || []).map(r => ({ id: r.id, name: r.name, items: r.items || [] })),
@@ -2064,6 +2129,9 @@ async function enterApp() {
       likes: likes.filter(l => l.workout_id === w.id).map(l => l.user_id),
     })),
   };
+
+  const { data: blocksData } = await sb.from('blocks').select('blocked_id').eq('blocker_id', user.id);
+  blockedUserIds = new Set((blocksData || []).map(b => b.blocked_id));
 
   $('loginScreen').classList.remove('active');
   checkNewDay();
@@ -2186,9 +2254,12 @@ function timeAgo(dateStr) {
 async function changeDisplayName() {
   const newName = prompt(currentLang === 'ja' ? '新しい表示名を入力' : 'Enter new display name', currentUser);
   if (!newName || !newName.trim() || newName.trim() === currentUser) return;
-  const { error } = await sb.from('profiles').update({ username: newName.trim() }).eq('id', currentUserId);
+  const trimmed = newName.trim();
+  if (trimmed.length > MAX_NAME_LEN) { toast(t('name_too_long')); return; }
+  if (hasProfanity(trimmed)) { toast(t('name_profanity')); return; }
+  const { error } = await sb.from('profiles').update({ username: trimmed }).eq('id', currentUserId);
   if (error) { toast('Error: ' + error.message); return; }
-  currentUser = newName.trim();
+  currentUser = trimmed;
   $('profileName').textContent = currentUser;
   toast(t('t_saved'));
 }
@@ -2404,6 +2475,8 @@ function render() {
   $('pMaxStreak').textContent = state.maxStreak;
   $('pVolume').textContent = formatVolume(todayStats.volume);
   $('pCardio').textContent = formatCardio(todayStats.distance, todayStats.duration);
+  if ($('privacyToggle')) $('privacyToggle').checked = state.isPrivate;
+  renderBlockedUsers();
 
   renderHistory();
 }
@@ -2514,7 +2587,7 @@ async function renderRanking() {
   const today = todayStr();
   const { data: todayWorkouts } = await sb.from('workouts').select('*').eq('date', today);
 
-  const list = (profiles || []).map(p => {
+  const list = (profiles || []).filter(p => p.id === currentUserId || (!isBlocked(p.id) && !p.is_private)).map(p => {
     const uWorkouts = (todayWorkouts || []).filter(w => w.user_id === p.id);
     const fakeState = { workouts: uWorkouts.map(w => ({
       date: w.date, type: w.type, sets: w.sets || [],
@@ -2570,7 +2643,7 @@ async function renderTimeline(profiles) {
     const { data: l } = await sb.from('likes').select('*').in('workout_id', wIds);
     likes = l || [];
   }
-  $('timelineList').innerHTML = recentWorkouts.map(w => {
+  $('timelineList').innerHTML = recentWorkouts.filter(w => !isBlocked(w.user_id)).map(w => {
     const p = profileMap[w.user_id];
     const userName = p ? p.username : '???';
     const avatar = p ? (p.avatar || '🐻') : '🐻';
@@ -2653,6 +2726,7 @@ let currentDetailUser = null;
 
 async function toggleLike(workoutId, fromTimeline) {
   if (!currentUserId) return;
+  if (!rateLimit('like', 1000)) { toast(t('rate_limited')); return; }
   const { data: existing } = await sb.from('likes').select('id').eq('workout_id', workoutId).eq('user_id', currentUserId).maybeSingle();
   if (existing) {
     await sb.from('likes').delete().eq('id', existing.id);
@@ -2760,6 +2834,11 @@ async function showUserDetail(userId) {
         <div class="hist-detail">${escapeHtml(body)}</div>
       </div>`;
     }).join('')}
+    ${userId !== currentUserId ? `
+      <div style="margin-top:20px;display:flex;gap:8px;justify-content:center">
+        <button onclick="reportUser('${userId}')" style="font-size:12px;color:var(--danger);background:none;border:2px solid var(--danger);border-radius:10px;padding:6px 14px;font-weight:700">${t('btn_report')}</button>
+        <button onclick="${isBlocked(userId) ? `unblockUser('${userId}')` : `blockUser('${userId}')`}" style="font-size:12px;color:#fff;background:var(--muted);border:none;border-radius:10px;padding:6px 14px;font-weight:700">${isBlocked(userId) ? t('btn_unblock') : t('btn_block')}</button>
+      </div>` : ''}
   `;
   $('userDetailScreen').classList.add('active');
 }
@@ -2809,6 +2888,8 @@ function showGroupActions() {
 async function createGroup() {
   const name = prompt(t('group_name_prompt'));
   if (!name || !name.trim()) return;
+  if (name.trim().length > MAX_GROUP_NAME_LEN) { toast(t('name_too_long')); return; }
+  if (hasProfanity(name.trim())) { toast(t('name_profanity')); return; }
   const icons = ['⚡','🔥','💪','🏆','🎯','⭐','🦁','🐉','🦅','🐺'];
   const icon = icons[Math.floor(Math.random() * icons.length)];
   const { data: group, error } = await sb.from('groups').insert({
@@ -3628,6 +3709,7 @@ function cancelRecord() {
 }
 
 async function saveRecord() {
+  if (!rateLimit('save', 3000)) { toast(t('rate_limited')); return; }
   if (!recordCtx.items.length) return toast(t('t_ex_req'));
   const sets = [];
   recordCtx.items.forEach(it => {
@@ -4002,8 +4084,9 @@ async function loadSuggestions() {
 
 async function submitSuggestion() {
   const input = $('suggestionInput');
-  const body = input.value.trim();
+  const body = truncate(input.value.trim(), MAX_SUGGESTION_LEN);
   if (!body) { toast(t('suggestion_body_req')); return; }
+  if (!rateLimit('suggestion', 10000)) { toast(t('rate_limited')); return; }
   const { error } = await sb.from('suggestions').insert({ user_id: state.user.id, body });
   if (error) { toast('Error: ' + (error.message || 'unknown')); return; }
   input.value = '';
@@ -4016,6 +4099,175 @@ async function deleteSuggestion(id) {
   await sb.from('suggestions').delete().eq('id', id);
   toast(t('suggestion_deleted'));
   loadSuggestions();
+}
+
+// ===================================================================
+// SECURITY: Input validation, rate limiting, report, block, profanity
+// ===================================================================
+function validateName(name) {
+  if (!name || !name.trim()) return false;
+  if (name.trim().length < 1 || name.trim().length > MAX_NAME_LEN) return false;
+  if (PROFANITY_LIST.some(w => name.toLowerCase().includes(w))) return false;
+  return true;
+}
+
+function truncate(str, max) { return str && str.length > max ? str.slice(0, max) : str; }
+
+const PROFANITY_LIST = [
+  'fuck','shit','ass','bitch','dick','pussy','cock','nigger','nigga','faggot',
+  'bastard','slut','whore','damn','cunt','retard','idiot','stupid',
+  'クソ','死ね','殺す','キモい','ゴミ','カス','バカ','アホ',
+];
+
+function hasProfanity(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return PROFANITY_LIST.some(w => lower.includes(w));
+}
+
+const _rateMap = {};
+function rateLimit(key, intervalMs) {
+  const now = Date.now();
+  if (_rateMap[key] && now - _rateMap[key] < intervalMs) return false;
+  _rateMap[key] = now;
+  return true;
+}
+
+async function reportUser(userId) {
+  if (userId === currentUserId) return;
+  const reason = prompt(t('report_reason_prompt'));
+  if (!reason || !reason.trim()) return;
+  const { error } = await sb.from('reports').insert({
+    reporter_id: currentUserId,
+    reported_user_id: userId,
+    reason: truncate(reason.trim(), 500),
+  });
+  if (error) {
+    if (error.code === '23505') toast(t('report_already'));
+    else toast('Error: ' + error.message);
+    return;
+  }
+  toast(t('report_sent'));
+}
+
+async function blockUser(userId) {
+  if (userId === currentUserId) return;
+  if (!confirm(t('block_confirm'))) return;
+  const { error } = await sb.from('blocks').insert({
+    blocker_id: currentUserId,
+    blocked_id: userId,
+  });
+  if (error && error.code !== '23505') { toast('Error: ' + error.message); return; }
+  blockedUserIds.add(userId);
+  toast(t('block_done'));
+  closeScreen('userDetailScreen');
+  render();
+}
+
+async function unblockUser(userId) {
+  await sb.from('blocks').delete().eq('blocker_id', currentUserId).eq('blocked_id', userId);
+  blockedUserIds.delete(userId);
+  toast(t('unblock_done'));
+  render();
+}
+
+function isBlocked(userId) { return blockedUserIds.has(userId); }
+
+async function togglePrivacy(isPrivate) {
+  await sb.from('profiles').update({ is_private: isPrivate }).eq('id', currentUserId);
+  toast(t('t_saved'));
+}
+
+async function renderBlockedUsers() {
+  const el = $('blockedUsersList');
+  if (!blockedUserIds.size) { el.innerHTML = `<div class="empty-state">${t('no_blocked_users')}</div>`; return; }
+  const ids = [...blockedUserIds];
+  const { data: profiles } = await sb.from('profiles').select('id,username').in('id', ids);
+  el.innerHTML = (profiles || []).map(p =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px;font-weight:700">${escapeHtml(p.username)}</span>
+      <button onclick="unblockUser('${p.id}')" style="font-size:12px;color:var(--secondary);background:none;border:none;font-weight:700">${t('btn_unblock')}</button>
+    </div>`
+  ).join('');
+}
+
+function showTerms() {
+  const html = currentLang === 'ja'
+    ? `<h3>利用規約</h3>
+<p>本サービスをご利用いただくにあたり、以下の行為を禁止します。</p>
+<ul>
+<li>他のユーザーへの嫌がらせ、誹謗中傷</li>
+<li>不正なアカウントの作成やなりすまし</li>
+<li>虚偽の記録の投稿</li>
+<li>本サービスへの不正アクセスや妨害行為</li>
+<li>その他、運営が不適切と判断する行為</li>
+</ul>
+<p>違反が確認された場合、アカウントを停止する場合があります。</p>
+<p>本規約は予告なく変更される場合があります。</p>`
+    : `<h3>Terms of Service</h3>
+<p>By using this service, you agree to the following rules:</p>
+<ul>
+<li>No harassment, hate speech, or bullying of other users</li>
+<li>No creating fake accounts or impersonating others</li>
+<li>No posting false or misleading workout records</li>
+<li>No unauthorized access or disruption of the service</li>
+<li>No other conduct deemed inappropriate by the operators</li>
+</ul>
+<p>Violations may result in account suspension.</p>
+<p>These terms may be updated without prior notice.</p>`;
+  showLegalModal(html);
+}
+
+function showPrivacyPolicy() {
+  const html = currentLang === 'ja'
+    ? `<h3>プライバシーポリシー</h3>
+<p>本サービスでは以下の情報を収集・利用します。</p>
+<ul>
+<li><b>Googleアカウント情報:</b> 認証のために使用します</li>
+<li><b>表示名:</b> 他のユーザーに表示されます</li>
+<li><b>トレーニング記録:</b> サービスの機能提供に使用します</li>
+<li><b>位置情報:</b> GPS計測時のみ使用し、サーバーには保存しません</li>
+</ul>
+<p>個人情報を第三者に販売・共有することはありません。</p>
+<p>アカウント削除により、すべてのデータが完全に消去されます。</p>`
+    : `<h3>Privacy Policy</h3>
+<p>We collect and use the following information:</p>
+<ul>
+<li><b>Google account info:</b> Used for authentication</li>
+<li><b>Display name:</b> Visible to other users</li>
+<li><b>Workout records:</b> Used to provide service features</li>
+<li><b>Location data:</b> Used only during GPS tracking, not stored on servers</li>
+</ul>
+<p>We do not sell or share personal information with third parties.</p>
+<p>Deleting your account permanently removes all your data.</p>`;
+  showLegalModal(html);
+}
+
+function showLegalModal(html) {
+  let modal = $('legalModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'legalModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px';
+    modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;font-size:13px;line-height:1.6">
+      <div id="legalContent"></div>
+      <button onclick="document.getElementById('legalModal').remove()" class="btn" style="margin-top:16px;width:100%">${t('btn_ok')}</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  $('legalContent').innerHTML = html;
+}
+
+async function deleteAccount() {
+  if (!confirm(t('delete_account_confirm1'))) return;
+  if (!confirm(t('delete_account_confirm2'))) return;
+  const { error } = await sb.rpc('delete_own_account');
+  if (error) { toast('Error: ' + error.message); return; }
+  await sb.auth.signOut();
+  currentUser = null;
+  currentUserId = null;
+  state = null;
+  location.reload();
 }
 
 // ===================================================================

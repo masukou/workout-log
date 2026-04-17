@@ -4194,52 +4194,195 @@ async function renderBlockedUsers() {
 function showTerms() {
   const html = currentLang === 'ja'
     ? `<h3>利用規約</h3>
-<p>本サービスをご利用いただくにあたり、以下の行為を禁止します。</p>
+<p><b>最終更新日:</b> 2026年4月17日</p>
+
+<h4>第1条（サービス概要）</h4>
+<p>本サービス「Workout Log」は、トレーニングの記録・共有を目的とした無料のWebアプリケーションです。</p>
+
+<h4>第2条（利用条件）</h4>
 <ul>
-<li>他のユーザーへの嫌がらせ、誹謗中傷</li>
+<li>本サービスの利用にはGoogleアカウントが必要です</li>
+<li>13歳未満の方はご利用いただけません</li>
+<li>利用開始をもって本規約に同意したものとみなします</li>
+</ul>
+
+<h4>第3条（禁止事項）</h4>
+<p>以下の行為を禁止します。</p>
+<ul>
+<li>他のユーザーへの嫌がらせ、誹謗中傷、脅迫</li>
 <li>不正なアカウントの作成やなりすまし</li>
 <li>虚偽の記録の投稿</li>
-<li>本サービスへの不正アクセスや妨害行為</li>
+<li>本サービスへの不正アクセス、妨害行為、過度な負荷をかける行為</li>
+<li>他のユーザーの個人情報を収集・公開する行為</li>
 <li>その他、運営が不適切と判断する行為</li>
 </ul>
-<p>違反が確認された場合、アカウントを停止する場合があります。</p>
-<p>本規約は予告なく変更される場合があります。</p>`
-    : `<h3>Terms of Service</h3>
-<p>By using this service, you agree to the following rules:</p>
+
+<h4>第4条（アカウント停止・削除）</h4>
+<p>禁止事項への違反が確認された場合、事前の通知なくアカウントを停止または削除することがあります。</p>
+
+<h4>第5条（免責事項）</h4>
 <ul>
-<li>No harassment, hate speech, or bullying of other users</li>
-<li>No creating fake accounts or impersonating others</li>
-<li>No posting false or misleading workout records</li>
-<li>No unauthorized access or disruption of the service</li>
-<li>No other conduct deemed inappropriate by the operators</li>
+<li>本サービスは「現状のまま」提供され、完全性・正確性・可用性を保証しません</li>
+<li>サービスの中断・停止・終了により生じた損害について、運営は一切の責任を負いません</li>
+<li>データの消失・破損について、運営は一切の責任を負いません</li>
+<li>ユーザー間のトラブルについて、運営は介入する義務を負いません</li>
 </ul>
-<p>Violations may result in account suspension.</p>
-<p>These terms may be updated without prior notice.</p>`;
+
+<h4>第6条（サービスの変更・終了）</h4>
+<p>運営は事前の通知なく、本サービスの内容変更・一時停止・終了を行う場合があります。</p>
+
+<h4>第7条（規約の変更）</h4>
+<p>本規約は予告なく変更される場合があります。変更後の利用をもって、新しい規約に同意したものとみなします。</p>
+
+<h4>第8条（準拠法・管轄）</h4>
+<p>本規約は日本法に準拠し、紛争が生じた場合は東京地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
+
+<h4>お問い合わせ</h4>
+<p>konyazakka@gmail.com</p>`
+
+    : `<h3>Terms of Service</h3>
+<p><b>Last updated:</b> April 17, 2026</p>
+
+<h4>1. Service Overview</h4>
+<p>Workout Log is a free web application for recording and sharing workout activities.</p>
+
+<h4>2. Eligibility</h4>
+<ul>
+<li>A Google account is required to use this service</li>
+<li>You must be at least 13 years old</li>
+<li>By using this service, you agree to these terms</li>
+</ul>
+
+<h4>3. Prohibited Conduct</h4>
+<ul>
+<li>Harassment, hate speech, bullying, or threats toward other users</li>
+<li>Creating fake accounts or impersonating others</li>
+<li>Posting false or misleading workout records</li>
+<li>Unauthorized access, disruption, or excessive load on the service</li>
+<li>Collecting or publishing other users' personal information</li>
+<li>Any other conduct deemed inappropriate by the operator</li>
+</ul>
+
+<h4>4. Account Suspension</h4>
+<p>Violations may result in account suspension or deletion without prior notice.</p>
+
+<h4>5. Disclaimer</h4>
+<ul>
+<li>This service is provided "as is" with no guarantees of completeness, accuracy, or availability</li>
+<li>The operator is not liable for damages caused by service interruption, suspension, or termination</li>
+<li>The operator is not liable for data loss or corruption</li>
+<li>The operator is not obligated to intervene in disputes between users</li>
+</ul>
+
+<h4>6. Service Changes</h4>
+<p>The operator may modify, suspend, or terminate the service without prior notice.</p>
+
+<h4>7. Changes to Terms</h4>
+<p>These terms may be updated without prior notice. Continued use after changes constitutes acceptance.</p>
+
+<h4>8. Governing Law</h4>
+<p>These terms are governed by the laws of Japan. The Tokyo District Court shall have exclusive jurisdiction.</p>
+
+<h4>Contact</h4>
+<p>konyazakka@gmail.com</p>`;
   showLegalModal(html);
 }
 
 function showPrivacyPolicy() {
   const html = currentLang === 'ja'
     ? `<h3>プライバシーポリシー</h3>
+<p><b>最終更新日:</b> 2026年4月17日</p>
+
+<h4>第1条（運営者情報）</h4>
+<p>本サービス「Workout Log」の運営者への連絡先: konyazakka@gmail.com</p>
+
+<h4>第2条（収集する情報）</h4>
 <p>本サービスでは以下の情報を収集・利用します。</p>
 <ul>
-<li><b>Googleアカウント情報:</b> 認証のために使用します</li>
-<li><b>表示名:</b> 他のユーザーに表示されます</li>
-<li><b>トレーニング記録:</b> サービスの機能提供に使用します</li>
-<li><b>位置情報:</b> GPS計測時のみ使用し、サーバーには保存しません</li>
+<li><b>Googleアカウント情報:</b> メールアドレス・表示名を認証目的で取得します</li>
+<li><b>表示名:</b> ユーザーが設定した名前を他のユーザーに表示します</li>
+<li><b>トレーニング記録:</b> ワークアウトの内容・日時をサービス機能の提供に使用します</li>
+<li><b>位置情報:</b> GPS計測機能使用時のみブラウザから取得し、距離の算出に使用します。生の位置座標はサーバーに保存しません</li>
 </ul>
-<p>個人情報を第三者に販売・共有することはありません。</p>
-<p>アカウント削除により、すべてのデータが完全に消去されます。</p>`
-    : `<h3>Privacy Policy</h3>
-<p>We collect and use the following information:</p>
+
+<h4>第3条（利用する第三者サービス）</h4>
 <ul>
-<li><b>Google account info:</b> Used for authentication</li>
-<li><b>Display name:</b> Visible to other users</li>
-<li><b>Workout records:</b> Used to provide service features</li>
-<li><b>Location data:</b> Used only during GPS tracking, not stored on servers</li>
+<li><b>Supabase:</b> データベース・認証基盤として使用（データはSupabaseのサーバーに保存されます）</li>
+<li><b>Google OAuth:</b> ログイン認証に使用</li>
+<li><b>Cloudflare Pages:</b> アプリケーションのホスティングに使用</li>
 </ul>
-<p>We do not sell or share personal information with third parties.</p>
-<p>Deleting your account permanently removes all your data.</p>`;
+
+<h4>第4条（ローカルストレージ）</h4>
+<p>ブラウザのlocalStorageを使用して、言語設定・重量単位の設定などを端末に保存します。これらはサーバーには送信されません。</p>
+
+<h4>第5条（データの保持期間）</h4>
+<p>ユーザーのデータはアカウントが有効な間保持されます。アカウント削除時にすべてのデータを完全に消去します。</p>
+
+<h4>第6条（第三者への提供）</h4>
+<p>収集した個人情報を第三者に販売・共有することはありません。ただし、法令に基づく開示要請があった場合を除きます。</p>
+
+<h4>第7条（ユーザーの権利）</h4>
+<p>ユーザーは以下の権利を有します。</p>
+<ul>
+<li><b>開示請求:</b> 保存されている自身のデータの開示を求めることができます</li>
+<li><b>訂正:</b> 表示名などの情報をアプリ内で変更できます</li>
+<li><b>削除:</b> アカウント削除により、すべてのデータを完全に消去できます</li>
+</ul>
+
+<h4>第8条（児童のプライバシー）</h4>
+<p>本サービスは13歳未満の方を対象としていません。13歳未満の利用が判明した場合、該当アカウントを削除します。</p>
+
+<h4>第9条（ポリシーの変更）</h4>
+<p>本ポリシーは予告なく変更される場合があります。重要な変更がある場合はアプリ内で通知します。</p>
+
+<h4>お問い合わせ</h4>
+<p>プライバシーに関するご質問・ご要望: konyazakka@gmail.com</p>`
+
+    : `<h3>Privacy Policy</h3>
+<p><b>Last updated:</b> April 17, 2026</p>
+
+<h4>1. Operator</h4>
+<p>Contact for Workout Log: konyazakka@gmail.com</p>
+
+<h4>2. Information We Collect</h4>
+<ul>
+<li><b>Google account info:</b> Email and display name for authentication</li>
+<li><b>Display name:</b> User-chosen name visible to other users</li>
+<li><b>Workout records:</b> Workout content and timestamps for service features</li>
+<li><b>Location data:</b> Collected via browser only during GPS tracking for distance calculation. Raw coordinates are not stored on servers</li>
+</ul>
+
+<h4>3. Third-Party Services</h4>
+<ul>
+<li><b>Supabase:</b> Database and authentication (data is stored on Supabase servers)</li>
+<li><b>Google OAuth:</b> Login authentication</li>
+<li><b>Cloudflare Pages:</b> Application hosting</li>
+</ul>
+
+<h4>4. Local Storage</h4>
+<p>We use browser localStorage for language and weight unit preferences. This data is not sent to servers.</p>
+
+<h4>5. Data Retention</h4>
+<p>Data is retained while the account is active. All data is permanently deleted upon account deletion.</p>
+
+<h4>6. Third-Party Sharing</h4>
+<p>We do not sell or share personal information with third parties, except when required by law.</p>
+
+<h4>7. Your Rights</h4>
+<ul>
+<li><b>Access:</b> You may request disclosure of your stored data</li>
+<li><b>Correction:</b> You can modify your display name and settings in the app</li>
+<li><b>Deletion:</b> You can permanently delete all data by deleting your account</li>
+</ul>
+
+<h4>8. Children's Privacy</h4>
+<p>This service is not intended for children under 13. If we learn that a child under 13 has created an account, we will delete it.</p>
+
+<h4>9. Policy Changes</h4>
+<p>This policy may be updated without prior notice. Significant changes will be communicated via the app.</p>
+
+<h4>Contact</h4>
+<p>For privacy inquiries: konyazakka@gmail.com</p>`;
   showLegalModal(html);
 }
 

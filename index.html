@@ -1672,7 +1672,10 @@ let timerPaused = false;
 // ===================================================================
 // HELPERS
 // ===================================================================
-function todayStr() { return new Date().toISOString().slice(0,10); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function $(id) { return document.getElementById(id); }
 function escapeHtml(s) {
@@ -2473,7 +2476,7 @@ async function renderRanking() {
     return {
       id: p.id, name: p.username, avatar: p.avatar || '🐻',
       streak: p.streak || 0, maxStreak: p.max_streak || 0,
-      todayStats, didToday: p.last_workout_date === today,
+      todayStats, didToday: uWorkouts.length > 0 || p.last_workout_date === today,
     };
   });
   list.sort((a,b) => {

@@ -2533,7 +2533,7 @@ async function renderTimeline(profiles) {
       if (w.distance) parts.push(Number(w.distance) + 'km');
       if (w.duration_min) parts.push(Number(w.duration_min) + t('unit_min'));
       summary = parts.join(' · ');
-    } else summary = w.note || '';
+    } else summary = '';
     const wLikes = likes.filter(l => l.workout_id === w.id).map(l => l.user_id);
     const likeCount = wLikes.length;
     const liked = currentUserId && wLikes.includes(currentUserId);
@@ -2580,7 +2580,6 @@ async function renderTimeline(profiles) {
       }
       detailHtml = `<div style="font-size:13px;font-weight:700">${parts.join(' · ')}</div>`;
     }
-    if (w.note) detailHtml += `<div style="font-size:12px;color:var(--muted);margin-top:4px">📝 ${escapeHtml(w.note)}</div>`;
 
     return `<div class="hist-item" data-id="tl_${w.id}">
       <div class="hist-head" onclick="toggleHist('tl_${w.id}')">
@@ -2699,7 +2698,7 @@ async function showUserDetail(userId) {
         if (w.durationMin) parts.push(w.durationMin+t('unit_min'));
         body = parts.join(' · ');
       }
-      else body = w.note||'';
+      else body = '';
       const likeCount = (w.likes||[]).length;
       return `<div class="hist-item">
         <div class="hist-head">

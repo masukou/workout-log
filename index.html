@@ -812,9 +812,9 @@
     <input class="input" id="inPass" type="password" data-i18n-ph="ph_pass" placeholder="パスワード(4文字以上)">
     <button class="btn" id="loginBtn">はじめる</button>
     <button class="login-switch" id="loginSwitch">すでにアカウントをお持ちの方</button>
-    <div style="margin-top:16px;display:flex;gap:6px;justify-content:center">
-      <button type="button" class="btn secondary small" onclick="setLang('ja')" style="flex:0 0 auto;min-width:60px">日本語</button>
-      <button type="button" class="btn secondary small" onclick="setLang('en')" style="flex:0 0 auto;min-width:60px">English</button>
+    <div style="margin-top:16px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+      <button type="button" class="btn secondary small" onclick="setLang('ja')" style="min-width:70px;padding:8px 16px">日本語</button>
+      <button type="button" class="btn secondary small" onclick="setLang('en')" style="min-width:70px;padding:8px 16px">English</button>
     </div>
   </div>
 </div>
@@ -904,15 +904,16 @@
     <button class="btn secondary small" style="margin-top:8px" onclick="openRoutineEditor()" data-i18n="new_routine">+ 新しいルーティン</button>
 
     <div class="section-title" data-i18n="sec_language">言語 / Language</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn secondary small" onclick="setLang('ja')" style="flex:1">日本語</button>
-      <button class="btn secondary small" onclick="setLang('en')" style="flex:1">English</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn secondary small" onclick="setLang('ja')" style="flex:1;min-width:70px">日本語</button>
+      <button class="btn secondary small" onclick="setLang('en')" style="flex:1;min-width:70px">English</button>
     </div>
 
     <div class="section-title" data-i18n="sec_account">アカウント</div>
     <button class="btn secondary" onclick="logout()" data-i18n="btn_logout">ログアウト</button>
     <div style="height:10px"></div>
     <button class="btn secondary" onclick="resetData()" style="color:var(--danger)" data-i18n="btn_reset">データをリセット</button>
+    <div style="height:40px"></div>
   </div>
 </main>
 

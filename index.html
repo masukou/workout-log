@@ -149,18 +149,19 @@
   }
 
   /* ===== Home ===== */
-  .mascot-row {
-    display: flex;
-    align-items: center;
-    background: var(--card);
-    border-radius: 18px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    gap: 12px;
+  .mascot-card {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 18px; padding: 14px 16px; margin-bottom: 14px;
   }
+  .mascot-row { display: flex; align-items: center; gap: 12px; }
   .mascot { font-size: 52px; }
-  .mascot-text { font-size: 14px; font-weight: 700; flex: 1; }
-  .mascot-text .sub { color: var(--muted); font-weight: 500; font-size: 12px; margin-top: 2px; }
+  .mascot-text { flex: 1; min-width: 0; }
+  #mascotSub { font-size: 20px; font-weight: 900; line-height: 1.25; }
+  #mascotMain { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+  .hp-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  }
 
   .routine-card {
     background: var(--primary);
@@ -842,19 +843,18 @@
 
   <!-- ============ HOME ============ -->
   <div class="view active" id="viewHome">
-    <div class="mascot-row">
-      <div class="mascot" id="mascot">🐻</div>
-      <div class="mascot-text">
-        <div id="mascotMain">今日も一緒にがんばろう!</div>
-        <div class="sub" id="mascotSub"></div>
+    <div class="mascot-card">
+      <div class="mascot-row">
+        <div class="mascot" id="mascot">🐻</div>
+        <div class="mascot-text">
+          <div id="mascotSub"></div>
+          <div id="mascotMain">今日も一緒にがんばろう!</div>
+        </div>
       </div>
-    </div>
-    <div id="streakGauge" style="display:none;margin:-4px 0 16px;padding:10px 14px;background:var(--card);border-radius:14px;border:1.5px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;font-weight:800">🔥 <span id="sgCount">0</span><span data-i18n="day_unit">日</span></span>
-        <div id="sgHearts" style="font-size:22px;letter-spacing:1px;line-height:1"></div>
+      <div class="hp-row" id="hpRow" style="display:none">
+        <div id="sgHearts" style="font-size:24px;letter-spacing:3px;line-height:1"></div>
+        <div id="sgLabel" style="font-size:11px;font-weight:700"></div>
       </div>
-      <div id="sgLabel" style="font-size:11px;font-weight:700;margin-top:4px;text-align:right"></div>
     </div>
 
     <div id="milestoneCards"></div>
@@ -2440,50 +2440,50 @@ function render() {
   const todayStats = computeTodayStats(state);
   $('hToday').textContent = formatTodayShort(todayStats);
 
-  // Mascot
-  const m = $('mascot');
-  const main = $('mascotMain');
-  const sub = $('mascotSub');
-  const dAgo = streakDaysAgo();
-  if (didToday()) {
-    m.textContent = '🔥';
-    main.textContent = t('mascot_done_main');
-    sub.textContent = t('mascot_streak_cont', state.streak);
-  } else if (state.streak > 0 && dAgo === 2) {
-    m.textContent = '😰';
-    main.textContent = t('mascot_warning_main');
-    sub.textContent = t('mascot_warning_sub');
-  } else if (state.streak === 0 && state.totalWorkouts > 0) {
+  // Mascot + HP card
+  const m       = $('mascot');
+  const main    = $('mascotMain');
+  const sub     = $('mascotSub');
+  const hpRow   = $('hpRow');
+  const sgHearts = $('sgHearts');
+  const sgLabel  = $('sgLabel');
+  const dAgo    = streakDaysAgo();
+  const H = '<span style="color:#ff4b4b">♥</span>';
+  const E = '<span style="color:#ddd">♥</span>';
+
+  if (state.streak > 0) {
+    const streakBig = currentLang === 'en'
+      ? `<span style="font-size:26px">${state.streak}</span>-day streak`
+      : `<span style="font-size:26px">${state.streak}</span>日継続中`;
+    sub.innerHTML = streakBig;
+    hpRow.style.display = 'flex';
+
+    if (dAgo === 0) {
+      m.textContent = '🔥';
+      main.textContent = t('mascot_done_main');
+      sgHearts.innerHTML = H + H + H;
+      sgLabel.innerHTML  = `<span style="color:var(--primary)">${currentLang === 'en' ? '✓ HP Full!' : '✓ HP全回復！'}</span>`;
+    } else if (dAgo === 1) {
+      m.textContent = '🐻';
+      main.textContent = currentLang === 'en' ? '1 grace day remaining' : 'あと1日猶予あり';
+      sgHearts.innerHTML = H + H + E;
+      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1' : 'HP -1 · あと1日'}</span>`;
+    } else if (dAgo === 2) {
+      m.textContent = '😰';
+      main.textContent = t('mascot_warning_sub');
+      sgHearts.innerHTML = H + E + E;
+      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Do it now!' : '⚠️ HP -2 · 今日やらないと途切れます！'}</span>`;
+    }
+  } else if (state.totalWorkouts > 0) {
     m.textContent = '😢';
-    main.textContent = t('mascot_lost_main');
-    sub.textContent = t('mascot_lost_sub');
+    sub.textContent = t('mascot_lost_main');
+    main.textContent = t('mascot_lost_sub');
+    hpRow.style.display = 'none';
   } else {
     m.textContent = '🐻';
-    main.textContent = t('mascot_go_main');
-    sub.textContent = state.streak > 0 ? t('mascot_streak_cont', state.streak) : t('mascot_first');
-  }
-
-  // Streak gauge (HP hearts)
-  const gauge = $('streakGauge');
-  if (state.streak > 0) {
-    gauge.style.display = '';
-    $('sgCount').textContent = state.streak;
-    const sgHearts = $('sgHearts');
-    const sgLabel  = $('sgLabel');
-    const H = '<span style="color:#ff4b4b">♥</span>';
-    const E = '<span style="color:#ddd">♥</span>';
-    if (dAgo === 0) {
-      sgHearts.innerHTML = H + H + H;
-      sgLabel.innerHTML  = `<span style="color:var(--primary)">${currentLang === 'en' ? '✓ Full HP! Come back tomorrow' : '✓ HP全回復！また明日'}</span>`;
-    } else if (dAgo === 1) {
-      sgHearts.innerHTML = H + H + E;
-      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1 · 1 day remaining' : 'HP -1 · あと1日で途切れます'}</span>`;
-    } else if (dAgo === 2) {
-      sgHearts.innerHTML = H + E + E;
-      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Work out NOW!' : '⚠️ HP -2 · 今日やらないと途切れます！'}</span>`;
-    }
-  } else {
-    gauge.style.display = 'none';
+    sub.textContent = t('mascot_go_main');
+    main.textContent = t('mascot_first');
+    hpRow.style.display = 'none';
   }
 
   // Milestones

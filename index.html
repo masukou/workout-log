@@ -848,6 +848,15 @@
         <div class="sub" id="mascotSub"></div>
       </div>
     </div>
+    <div id="streakGauge" style="display:none;margin:-4px 0 16px;padding:10px 14px;background:var(--card);border-radius:14px;border:1.5px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:800">🔥 <span id="sgCount">0</span><span data-i18n="day_unit">日</span></span>
+        <span id="sgLabel" style="font-size:11px;font-weight:700"></span>
+      </div>
+      <div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden">
+        <div id="sgBar" style="height:100%;border-radius:99px;transition:width 0.6s cubic-bezier(.4,0,.2,1),background 0.6s ease;width:100%"></div>
+      </div>
+    </div>
 
     <div id="milestoneCards"></div>
 
@@ -1366,6 +1375,8 @@ const I18N = {
     add_set: '+ セット追加',
     mascot_done_main: '今日もおつかれさま!',
     mascot_streak_cont: (n) => `ストリーク ${n}日継続中`,
+    mascot_warning_main: 'ストリークが危ない！',
+    mascot_warning_sub: '今日やれば続くよ！',
     mascot_lost_main: 'ストリークが途切れちゃった...',
     mascot_lost_sub: '今日から再スタート!',
     mascot_go_main: '今日もうごきましょう!',
@@ -1593,6 +1604,8 @@ const I18N = {
     add_set: '+ Add set',
     mascot_done_main: 'Great work today!',
     mascot_streak_cont: (n) => `${n}-day streak`,
+    mascot_warning_main: 'Your streak is at risk!',
+    mascot_warning_sub: 'Work out today to keep it!',
     mascot_lost_main: 'Your streak broke...',
     mascot_lost_sub: 'Start fresh today!',
     mascot_go_main: "Let's move today!",
@@ -1836,16 +1849,19 @@ async function saveState() {
 
 function checkNewDay() {
   if (!state) return;
-  const today = todayStr();
-  if (state.lastWorkoutDate && state.lastWorkoutDate !== today) {
-    const y = new Date(Date.now() - 86400000).toISOString().slice(0,10);
-    if (state.lastWorkoutDate !== y) state.streak = 0;
-  }
+  // Streak breaks only after 2 consecutive days without a workout
+  if (state.lastWorkoutDate && streakDaysAgo() >= 3) state.streak = 0;
   saveState();
 }
 
 function didToday() {
   return state && state.lastWorkoutDate === todayStr();
+}
+
+function streakDaysAgo() {
+  if (!state?.lastWorkoutDate) return 99;
+  const today = todayStr();
+  return Math.round((new Date(today) - new Date(state.lastWorkoutDate)) / 86400000);
 }
 
 function computeTodayStats(userState) {
@@ -2431,10 +2447,15 @@ function render() {
   const m = $('mascot');
   const main = $('mascotMain');
   const sub = $('mascotSub');
+  const dAgo = streakDaysAgo();
   if (didToday()) {
     m.textContent = '🔥';
     main.textContent = t('mascot_done_main');
     sub.textContent = t('mascot_streak_cont', state.streak);
+  } else if (state.streak > 0 && dAgo === 2) {
+    m.textContent = '😰';
+    main.textContent = t('mascot_warning_main');
+    sub.textContent = t('mascot_warning_sub');
   } else if (state.streak === 0 && state.totalWorkouts > 0) {
     m.textContent = '😢';
     main.textContent = t('mascot_lost_main');
@@ -2443,6 +2464,30 @@ function render() {
     m.textContent = '🐻';
     main.textContent = t('mascot_go_main');
     sub.textContent = state.streak > 0 ? t('mascot_streak_cont', state.streak) : t('mascot_first');
+  }
+
+  // Streak gauge
+  const gauge = $('streakGauge');
+  if (state.streak > 0) {
+    gauge.style.display = '';
+    $('sgCount').textContent = state.streak;
+    const sgBar = $('sgBar');
+    const sgLabel = $('sgLabel');
+    if (dAgo === 0) {
+      sgBar.style.width = '100%'; sgBar.style.background = 'var(--primary)';
+      sgLabel.textContent = currentLang === 'en' ? '✓ Done today!' : '✓ 今日完了！';
+      sgLabel.style.color = 'var(--primary)';
+    } else if (dAgo === 1) {
+      sgBar.style.width = '66%'; sgBar.style.background = '#ff9600';
+      sgLabel.textContent = currentLang === 'en' ? 'Grace: 1 day left' : '猶予 あと1日';
+      sgLabel.style.color = '#ff9600';
+    } else if (dAgo === 2) {
+      sgBar.style.width = '33%'; sgBar.style.background = 'var(--danger)';
+      sgLabel.textContent = currentLang === 'en' ? '⚠️ Do it today!' : '⚠️ 今日やらないと途切れます！';
+      sgLabel.style.color = 'var(--danger)';
+    }
+  } else {
+    gauge.style.display = 'none';
   }
 
   // Milestones
@@ -4012,8 +4057,10 @@ async function commitWorkout(w) {
     state.workouts.push(w);
     const today = todayStr();
     if (state.lastWorkoutDate !== today) {
-      const y = new Date(Date.now() - 86400000).toISOString().slice(0,10);
-      if (state.lastWorkoutDate === y) state.streak++;
+      const d = state.lastWorkoutDate
+        ? Math.round((new Date(today) - new Date(state.lastWorkoutDate)) / 86400000)
+        : 99;
+      if (d >= 1 && d <= 2) state.streak++;
       else state.streak = 1;
       if (state.streak > state.maxStreak) state.maxStreak = state.streak;
       state.lastWorkoutDate = today;

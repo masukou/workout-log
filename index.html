@@ -776,19 +776,20 @@
   .achievement-row .ach-name { font-weight: 800; font-size: 13px; flex: 1; }
   .achievement-row .ach-text { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+  .milestone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
   .milestone-card {
     background: var(--card); border: 2px solid var(--border); border-radius: 16px;
-    padding: 14px 16px; margin-bottom: 10px; position: relative; overflow: hidden;
+    padding: 12px 12px; position: relative; overflow: hidden;
   }
-  .milestone-card .ms-icon { font-size: 36px; float: right; margin: -4px 0 0 8px; }
-  .milestone-card .ms-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
-  .milestone-card .ms-title { font-size: 16px; font-weight: 900; margin: 4px 0; }
-  .milestone-card .ms-sub { font-size: 12px; color: var(--muted); }
-  .milestone-card .ms-bar { height: 8px; background: var(--border); border-radius: 4px; margin-top: 10px; overflow: hidden; }
+  .milestone-card .ms-icon { font-size: 26px; float: right; margin: -2px 0 0 6px; }
+  .milestone-card .ms-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+  .milestone-card .ms-title { font-size: 13px; font-weight: 900; margin: 3px 0; line-height: 1.3; }
+  .milestone-card .ms-sub { font-size: 11px; color: var(--muted); }
+  .milestone-card .ms-bar { height: 7px; background: var(--border); border-radius: 4px; margin-top: 8px; overflow: hidden; }
   .milestone-card .ms-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
   .milestone-card .ms-fill.weight { background: linear-gradient(90deg, #ff6b35, #ff4757); }
   .milestone-card .ms-fill.distance { background: linear-gradient(90deg, #1e88e5, #00bcd4); }
-  .milestone-card .ms-next { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+  .milestone-card .ms-next { font-size: 10px; color: var(--muted); margin-top: 5px; font-weight: 700; }
 
   .note-input {
     width: 100%;
@@ -849,13 +850,11 @@
       </div>
     </div>
     <div id="streakGauge" style="display:none;margin:-4px 0 16px;padding:10px 14px;background:var(--card);border-radius:14px;border:1.5px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;font-weight:800">🔥 <span id="sgCount">0</span><span data-i18n="day_unit">日</span></span>
-        <span id="sgLabel" style="font-size:11px;font-weight:700"></span>
+        <div id="sgHearts" style="font-size:22px;letter-spacing:1px;line-height:1"></div>
       </div>
-      <div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden">
-        <div id="sgBar" style="height:100%;border-radius:99px;transition:width 0.6s cubic-bezier(.4,0,.2,1),background 0.6s ease;width:100%"></div>
-      </div>
+      <div id="sgLabel" style="font-size:11px;font-weight:700;margin-top:4px;text-align:right"></div>
     </div>
 
     <div id="milestoneCards"></div>
@@ -2397,9 +2396,7 @@ function renderMilestones() {
   const wm = getMilestone(WEIGHT_MILESTONES, totalVol);
   const dm = getMilestone(DISTANCE_MILESTONES, totalDist);
 
-  let html = '';
-
-  // Weight milestone
+  // Weight milestone card
   const wCurr = wm.current;
   const wNext = wm.next;
   const wLabel = currentLang === 'en' ? wCurr.en : wCurr.ja;
@@ -2407,34 +2404,34 @@ function renderMilestones() {
   const wNextLabel = wNext ? (currentLang === 'en' ? wNext.en : wNext.ja) : '';
   const volStr = formatVolume(totalVol);
 
-  html += `<div class="milestone-card">
+  const wCard = `<div class="milestone-card">
     <div class="ms-icon">${wCurr.icon}</div>
     <div class="ms-label">💪 ${currentLang === 'en' ? 'Total Lifted' : '累計挙上量'}</div>
     <div class="ms-title">${wLabel}</div>
-    <div class="ms-sub">${volStr} ${currentLang === 'en' ? 'lifted so far' : '持ち上げた'}</div>
+    <div class="ms-sub">${volStr} ${currentLang === 'en' ? 'lifted' : '持ち上げた'}</div>
     <div class="ms-bar"><div class="ms-fill weight" style="width:${wPct}%"></div></div>
-    ${wNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${wNext.icon} ${wNextLabel} (${formatVolume(wNext.kg)})</div>` : ''}
+    ${wNext ? `<div class="ms-next">▶ ${wNext.icon} ${formatVolume(wNext.kg)}</div>` : ''}
   </div>`;
 
-  // Distance milestone
-  if (totalDist > 0 || (state?.workouts || []).some(w => w.type === 'cardio')) {
-    const dCurr = dm.current;
-    const dNext = dm.next;
-    const dLabel = currentLang === 'en' ? dCurr.en : dCurr.ja;
-    const dPct = dNext ? Math.min(100, ((totalDist - dCurr.km) / (dNext.km - dCurr.km)) * 100) : 100;
-    const dNextLabel = dNext ? (currentLang === 'en' ? dNext.en : dNext.ja) : '';
+  // Distance milestone card
+  const hasCardio = totalDist > 0 || (state?.workouts || []).some(w => w.type === 'cardio');
+  const dCurr = dm.current;
+  const dNext = dm.next;
+  const dLabel = currentLang === 'en' ? dCurr.en : dCurr.ja;
+  const dPct = dNext ? Math.min(100, ((totalDist - dCurr.km) / (dNext.km - dCurr.km)) * 100) : 100;
 
-    html += `<div class="milestone-card">
-      <div class="ms-icon">${dCurr.icon}</div>
-      <div class="ms-label">🏃 ${currentLang === 'en' ? 'Total Distance' : '累計走行距離'}</div>
-      <div class="ms-title">${dLabel}</div>
-      <div class="ms-sub">${totalDist.toFixed(1)}km ${currentLang === 'en' ? 'covered so far' : '走った'}</div>
-      <div class="ms-bar"><div class="ms-fill distance" style="width:${dPct}%"></div></div>
-      ${dNext ? `<div class="ms-next">${currentLang === 'en' ? 'Next' : '次の目標'}: ${dNext.icon} ${dNextLabel} (${dNext.km >= 1000 ? (dNext.km/1000).toFixed(0)+'k' : dNext.km}km)</div>` : ''}
-    </div>`;
-  }
+  const dCard = hasCardio ? `<div class="milestone-card">
+    <div class="ms-icon">${dCurr.icon}</div>
+    <div class="ms-label">🏃 ${currentLang === 'en' ? 'Total Distance' : '累計走行距離'}</div>
+    <div class="ms-title">${dLabel}</div>
+    <div class="ms-sub">${totalDist.toFixed(1)}km ${currentLang === 'en' ? 'covered' : '走った'}</div>
+    <div class="ms-bar"><div class="ms-fill distance" style="width:${dPct}%"></div></div>
+    ${dNext ? `<div class="ms-next">▶ ${dNext.icon} ${dNext.km >= 1000 ? (dNext.km/1000).toFixed(0)+'k' : dNext.km}km</div>` : ''}
+  </div>` : '';
 
-  $('milestoneCards').innerHTML = html;
+  $('milestoneCards').innerHTML = hasCardio
+    ? `<div class="milestone-grid">${wCard}${dCard}</div>`
+    : wCard;
 }
 
 function render() {
@@ -2466,25 +2463,24 @@ function render() {
     sub.textContent = state.streak > 0 ? t('mascot_streak_cont', state.streak) : t('mascot_first');
   }
 
-  // Streak gauge
+  // Streak gauge (HP hearts)
   const gauge = $('streakGauge');
   if (state.streak > 0) {
     gauge.style.display = '';
     $('sgCount').textContent = state.streak;
-    const sgBar = $('sgBar');
-    const sgLabel = $('sgLabel');
+    const sgHearts = $('sgHearts');
+    const sgLabel  = $('sgLabel');
+    const H = '<span style="color:#ff4b4b">♥</span>';
+    const E = '<span style="color:#ddd">♥</span>';
     if (dAgo === 0) {
-      sgBar.style.width = '100%'; sgBar.style.background = 'var(--primary)';
-      sgLabel.textContent = currentLang === 'en' ? '✓ Done today!' : '✓ 今日完了！';
-      sgLabel.style.color = 'var(--primary)';
+      sgHearts.innerHTML = H + H + H;
+      sgLabel.innerHTML  = `<span style="color:var(--primary)">${currentLang === 'en' ? '✓ Full HP! Come back tomorrow' : '✓ HP全回復！また明日'}</span>`;
     } else if (dAgo === 1) {
-      sgBar.style.width = '66%'; sgBar.style.background = '#ff9600';
-      sgLabel.textContent = currentLang === 'en' ? 'Grace: 1 day left' : '猶予 あと1日';
-      sgLabel.style.color = '#ff9600';
+      sgHearts.innerHTML = H + H + E;
+      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1 · 1 day remaining' : 'HP -1 · あと1日で途切れます'}</span>`;
     } else if (dAgo === 2) {
-      sgBar.style.width = '33%'; sgBar.style.background = 'var(--danger)';
-      sgLabel.textContent = currentLang === 'en' ? '⚠️ Do it today!' : '⚠️ 今日やらないと途切れます！';
-      sgLabel.style.color = 'var(--danger)';
+      sgHearts.innerHTML = H + E + E;
+      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Work out NOW!' : '⚠️ HP -2 · 今日やらないと途切れます！'}</span>`;
     }
   } else {
     gauge.style.display = 'none';

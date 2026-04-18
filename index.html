@@ -7,8 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
-    --primary: #58cc02;
-    --primary-dark: #4ba802;
+    --primary: #ff6b35;
+    --primary-dark: #e05520;
     --secondary: #1cb0f6;
     --danger: #ff4b4b;
     --warning: #ffc800;
@@ -416,7 +416,7 @@
     align-items: center;
     gap: 10px;
   }
-  .rank-item.me { border-color: var(--primary); background: #f0fff0; }
+  .rank-item.me { border-color: var(--primary); background: #fff3ee; }
   .rank-num {
     font-size: 18px;
     font-weight: 900;
@@ -444,7 +444,7 @@
     border-radius: 8px;
     font-weight: 800;
   }
-  .rank-status.done { background: #e8f9d9; color: var(--primary); }
+  .rank-status.done { background: #fff3ee; color: var(--primary); }
   .rank-status.not { background: #f1f1f1; color: var(--muted); }
 
   .seg {
@@ -671,7 +671,7 @@
     background: var(--card); border: 2px solid var(--border); border-radius: 14px;
     padding: 16px; margin-bottom: 12px; text-align: center;
   }
-  .gps-tracker.tracking { border-color: #43a047; }
+  .gps-tracker.tracking { border-color: var(--primary); }
   .gps-display { font-size: 36px; font-weight: 900; margin: 8px 0; }
   .gps-sub { font-size: 13px; color: var(--muted); }
   .gps-btn {
@@ -679,7 +679,7 @@
     padding: 10px 24px; border-radius: 24px; font-weight: 800; font-size: 14px;
     border: none; cursor: pointer; margin-top: 10px;
   }
-  .gps-btn.start { background: #43a047; color: #fff; }
+  .gps-btn.start { background: var(--primary); color: #fff; }
   .gps-btn.stop { background: #ff4757; color: #fff; }
   .gps-pulse { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff4757; animation: pulse 1s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -748,7 +748,7 @@
     white-space: nowrap;
   }
   .status-badge.weight_up { background: #fff4d6; color: #d49a00; }
-  .status-badge.overcame { background: #e8f9d9; color: var(--primary); }
+  .status-badge.overcame { background: #fff3ee; color: var(--primary); }
   .status-badge.challenge { background: #dcf0ff; color: var(--secondary); }
 
   .eh-session {
@@ -995,6 +995,7 @@
       <button class="gps-btn stop" id="gpsStopBtn" onclick="stopGps()" style="display:none">
         <span class="gps-pulse"></span> <span data-i18n="gps_stop">計測を停止</span>
       </button>
+      <div id="gpsWakeLockNote" style="display:none;font-size:11px;color:var(--muted);margin-top:8px" data-i18n="gps_screen_on">⚠️ 画面をオンのままにしてください</div>
     </div>
     <div style="text-align:center;font-size:12px;color:var(--muted);margin:-6px 0 10px" data-i18n="gps_or_manual">または手動で入力 ↓</div>
     <div class="card">
@@ -1422,6 +1423,7 @@ const I18N = {
     gps_stop: '計測を停止',
     gps_or_manual: 'または手動で入力 ↓',
     gps_no_support: 'このブラウザはGPSに対応していません',
+    gps_screen_on: '⚠️ 計測中は画面をオンのままにしてください',
     gps_verified: 'GPS認証',
     t_dist_req: '距離を入力してください',
     t_what_req: '何をしたか入力してください',
@@ -1648,6 +1650,7 @@ const I18N = {
     gps_stop: 'Stop Tracking',
     gps_or_manual: 'or enter manually ↓',
     gps_no_support: 'GPS is not supported in this browser',
+    gps_screen_on: '⚠️ Keep the screen on while tracking',
     gps_verified: 'GPS Verified',
     t_dist_req: 'Please enter a distance',
     t_what_req: 'Please enter what you did',
@@ -3760,6 +3763,34 @@ let gpsPositions = [];
 let gpsStartTime = null;
 let gpsTimerInterval = null;
 let gpsUsed = false;
+let gpsWakeLock = null;
+
+async function acquireWakeLock() {
+  const note = $('gpsWakeLockNote');
+  if (!('wakeLock' in navigator)) {
+    if (note) { note.style.display = ''; note.textContent = t('gps_screen_on'); }
+    return;
+  }
+  try {
+    gpsWakeLock = await navigator.wakeLock.request('screen');
+    if (note) note.style.display = 'none';
+    // Re-acquire if released by browser (e.g. tab switch then return)
+    gpsWakeLock.addEventListener('release', () => {
+      if (gpsWatchId !== null) {
+        if (note) { note.style.display = ''; note.textContent = t('gps_screen_on'); }
+        acquireWakeLock();
+      }
+    });
+  } catch (e) {
+    if (note) { note.style.display = ''; note.textContent = t('gps_screen_on'); }
+  }
+}
+
+function releaseWakeLock() {
+  if (gpsWakeLock) { gpsWakeLock.release(); gpsWakeLock = null; }
+  const note = $('gpsWakeLockNote');
+  if (note) note.style.display = 'none';
+}
 
 function startCardio() {
   editingWorkoutId = null;
@@ -3782,10 +3813,10 @@ function resetGpsDisplay() {
   gpsStartTime = null;
   if (gpsTimerInterval) clearInterval(gpsTimerInterval);
   if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  releaseWakeLock();
 }
 
-function startGps() {
-  if (!navigator.geolocation) { toast(t('gps_no_support')); return; }
+function _doStartGps() {
   gpsPositions = [];
   gpsStartTime = Date.now();
   gpsUsed = false;
@@ -3793,6 +3824,7 @@ function startGps() {
   $('gpsStopBtn').style.display = '';
   $('gpsTracker').classList.add('tracking');
   $('gpsPace').textContent = currentLang === 'en' ? 'Acquiring GPS...' : 'GPS取得中...';
+  acquireWakeLock();
 
   gpsTimerInterval = setInterval(updateGpsTimer, 1000);
 
@@ -3806,7 +3838,10 @@ function startGps() {
     (err) => {
       console.error('GPS error', err);
       if (err.code === 1) {
-        toast(currentLang === 'en' ? 'Location permission denied' : '位置情報の許可が必要です');
+        const msg = currentLang === 'en'
+          ? 'Location permission denied. Please allow access in your browser settings (tap the lock icon in the address bar).'
+          : '位置情報が拒否されています。ブラウザのサイト設定（アドレスバーの鍵アイコン）から位置情報を「許可」に変更してください。';
+        alert(msg);
         stopGps();
       } else if (err.code === 2) {
         $('gpsPace').textContent = currentLang === 'en' ? 'GPS unavailable, retrying...' : 'GPS取得できません。リトライ中...';
@@ -3814,6 +3849,24 @@ function startGps() {
     },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
   );
+}
+
+function startGps() {
+  if (!navigator.geolocation) { toast(t('gps_no_support')); return; }
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+      if (result.state === 'denied') {
+        const msg = currentLang === 'en'
+          ? 'Location permission is blocked. Please allow access in your browser settings (tap the lock icon in the address bar), then try again.'
+          : '位置情報がブロックされています。ブラウザのサイト設定（アドレスバーの鍵アイコン）から位置情報を「許可」に変更してから、もう一度お試しください。';
+        alert(msg);
+        return;
+      }
+      _doStartGps();
+    }).catch(() => _doStartGps());
+  } else {
+    _doStartGps();
+  }
 }
 
 function stopGps() {

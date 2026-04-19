@@ -259,14 +259,20 @@
   }
   .exercise-name { font-weight: 800; font-size: 15px; }
   .exercise-prev { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .set-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
   .set-row {
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-top: 8px;
     padding: 8px 6px;
     background: #fff;
     border-radius: 10px;
+    flex: 1;
   }
   .set-num { font-weight: 800; color: var(--muted); width: 16px; font-size: 11px; flex-shrink: 0; }
   .stepper {
@@ -297,9 +303,10 @@
     background: none;
     border: none;
     color: var(--danger);
-    font-size: 14px;
-    width: 22px;
+    font-size: 16px;
+    width: 28px;
     flex-shrink: 0;
+    align-self: center;
   }
   .add-set {
     margin-top: 8px;
@@ -3349,6 +3356,7 @@ function renderRoutineEditor() {
       <div class="btns">
         <button onclick="moveItem(${i},-1)" ${i===0?'disabled':''}>↑</button>
         <button onclick="moveItem(${i},1)" ${i===editingRoutine.items.length-1?'disabled':''}>↓</button>
+        <button onclick="copyRoutineItem(${i})">📋</button>
         <button onclick="removeItem(${i})">🗑</button>
       </div>
     </div>`;
@@ -3386,6 +3394,11 @@ function moveItem(i, dir) {
 }
 function removeItem(i) {
   editingRoutine.items.splice(i, 1);
+  renderRoutineEditor();
+}
+function copyRoutineItem(i) {
+  const copy = JSON.parse(JSON.stringify(editingRoutine.items[i]));
+  editingRoutine.items.splice(i + 1, 0, copy);
   renderRoutineEditor();
 }
 
@@ -3746,19 +3759,19 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
     const mode = item.cardioMode || 'distance';
     const inner = mode === 'distance'
       ? `<div class="stepper">
-          <span class="lbl">km</span>
           <input class="dial-input" type="number" value="${s.distance||0}" step="0.5" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="distance" data-step="0.5" data-min="0" onchange="setVal(${exIdx},${setIdx},'distance',this.value)">
+          <span class="lbl">km</span>
         </div>`
       : `<div class="stepper">
-          <span class="lbl">${currentLang==='en'?'min':'分'}</span>
           <input class="dial-input" type="number" value="${s.durationMin||0}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="durationMin" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'durationMin',this.value)">
+          <span class="lbl">${currentLang==='en'?'min':'分'}</span>
         </div>`;
-    return `<div>
+    return `<div class="set-wrap">
       <div class="set-row">
         <div class="set-num">${setIdx+1}</div>
         ${inner}
-        <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
       </div>
+      <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
       ${prevHint}
     </div>`;
   }
@@ -3768,22 +3781,22 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   const wStep = weightUnit === 'lbs' ? 1 : 0.25;
   const weightField = (!isBW && !isTime) || isBW ? `
     <div class="stepper">
-      <span class="lbl">${isDB ? '片方' : wUnit()}</span>
       <input class="dial-input" type="number" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
+      <span class="lbl">${isDB ? '片方' : wUnit()}</span>
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
   const repsField = `
     <div class="stepper">
-      <span class="lbl">${repsLbl}</span>
       <input class="dial-input" type="number" value="${s.reps}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="reps" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
+      <span class="lbl">${repsLbl}</span>
     </div>`;
-  return `<div>
+  return `<div class="set-wrap">
     <div class="set-row">
       <div class="set-num">${setIdx+1}</div>
       ${weightField}
       ${repsField}
-      <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
     </div>
+    <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
     ${prevHint}
   </div>`;
 }

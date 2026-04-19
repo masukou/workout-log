@@ -862,6 +862,8 @@
       </div>
     </div>
 
+    <div id="draftBanner" style="display:none;background:#fff8e1;border:2px solid #ffe082;border-radius:12px;padding:10px 14px;margin-bottom:12px"></div>
+
     <div id="milestoneCards"></div>
 
     <div class="section-title">
@@ -989,6 +991,7 @@
       <button class="btn secondary" onclick="addExerciseToRecord()" data-i18n="add_exercise_btn">+ 種目を追加</button>
       <button class="btn" onclick="saveRecord()" data-i18n="btn_save_workout">記録する</button>
     </div>
+    <button class="btn secondary" style="margin-top:8px;width:100%;font-size:13px" onclick="saveDraft('record')">💾 <span data-i18n="draft_save">一時保存</span></button>
   </div>
 </div>
 
@@ -1068,6 +1071,7 @@
   </div>
   <div class="screen-footer">
     <button class="btn" onclick="saveManualCardio()" data-i18n="btn_record">記録する</button>
+    <button class="btn secondary" style="margin-top:8px;width:100%;font-size:13px" onclick="saveDraft('manualCardio')">💾 <span data-i18n="draft_save">一時保存</span></button>
   </div>
 </div>
 
@@ -1083,6 +1087,7 @@
   </div>
   <div class="screen-footer">
     <button class="btn" onclick="saveFree()" data-i18n="btn_record">記録する</button>
+    <button class="btn secondary" style="margin-top:8px;width:100%;font-size:13px" onclick="saveDraft('free')">💾 <span data-i18n="draft_save">一時保存</span></button>
   </div>
 </div>
 
@@ -1285,6 +1290,7 @@ const LANG_KEY = 'undokiroku_lang_v1';
 let currentLang = localStorage.getItem(LANG_KEY) || 'ja';
 const WUNIT_KEY = 'undokiroku_wunit_v1';
 let weightUnit = localStorage.getItem(WUNIT_KEY) || 'kg';
+const DRAFT_KEY = 'undokiroku_draft_v1';
 
 const MAX_NAME_LEN = 20;
 const MAX_GROUP_NAME_LEN = 30;
@@ -1371,6 +1377,7 @@ const I18N = {
     add_exercise_btn: '+ 種目を追加',
     btn_save_workout: '記録する',
     btn_record: '記録する',
+    draft_save: '一時保存',
     btn_cancel: 'キャンセル',
     btn_delete: '削除',
     btn_ok: 'OK',
@@ -1604,6 +1611,7 @@ const I18N = {
     add_exercise_btn: '+ Add Exercise',
     btn_save_workout: 'Save',
     btn_record: 'Record',
+    draft_save: 'Save Draft',
     btn_cancel: 'Cancel',
     btn_delete: 'Delete',
     btn_ok: 'OK',
@@ -2535,6 +2543,9 @@ function render() {
     main.textContent = t('mascot_first');
     hpRow.style.display = 'none';
   }
+
+  // Draft banner
+  checkDraft();
 
   // Milestones
   renderMilestones();
@@ -3833,6 +3844,77 @@ function cancelRecord() {
   closeScreen('recordScreen');
 }
 
+// ===================================================================
+// DRAFT (一時保存)
+// ===================================================================
+function saveDraft(screen) {
+  let data = {};
+  if (screen === 'record') {
+    if (!recordCtx?.items?.length) return toast(currentLang === 'en' ? 'Nothing to save yet' : '種目を追加してから保存してください');
+    data = { recordCtx: JSON.parse(JSON.stringify(recordCtx)), editingWorkoutId };
+  } else if (screen === 'manualCardio') {
+    data = { dist: $('manualDist').value, time: $('manualTime').value, note: $('manualNote').value };
+  } else if (screen === 'free') {
+    data = { title: $('freeTitle').value, note: $('freeNote').value };
+  }
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({ screen, savedAt: new Date().toISOString(), data }));
+  toast(currentLang === 'en' ? '💾 Draft saved' : '💾 一時保存しました');
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+function checkDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  const banner = $('draftBanner');
+  if (!raw || !banner) return;
+  try {
+    const d = JSON.parse(raw);
+    const savedAt = new Date(d.savedAt);
+    const timeStr = `${savedAt.getMonth()+1}/${savedAt.getDate()} ${String(savedAt.getHours()).padStart(2,'0')}:${String(savedAt.getMinutes()).padStart(2,'0')}`;
+    const screenLabel = d.screen === 'record' ? (currentLang === 'en' ? 'Strength' : '筋トレ') :
+                        d.screen === 'manualCardio' ? (currentLang === 'en' ? 'Running' : 'ランニング') :
+                        (currentLang === 'en' ? 'Free log' : '自由記録');
+    banner.style.display = '';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:12px;font-weight:700">💾 ${screenLabel}の途中の記録 <span style="color:var(--muted);font-weight:500">(${timeStr})</span></div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="restoreDraft()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer">${currentLang === 'en' ? '▶ Resume' : '▶ 再開'}</button>
+          <button onclick="discardDraft()" style="background:var(--border);color:var(--muted);border:none;border-radius:8px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+      </div>`;
+  } catch(e) { clearDraft(); banner.style.display = 'none'; }
+}
+
+function restoreDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  const { screen, data } = JSON.parse(raw);
+  clearDraft();
+  $('draftBanner').style.display = 'none';
+  if (screen === 'record') {
+    recordCtx = data.recordCtx;
+    editingWorkoutId = data.editingWorkoutId;
+    openRecordScreen();
+  } else if (screen === 'manualCardio') {
+    $('manualDist').value = data.dist;
+    $('manualTime').value = data.time;
+    $('manualNote').value = data.note;
+    $('cardioManualScreen').classList.add('active');
+  } else if (screen === 'free') {
+    $('freeTitle').value = data.title;
+    $('freeNote').value = data.note;
+    $('freeScreen').classList.add('active');
+  }
+}
+
+function discardDraft() {
+  clearDraft();
+  $('draftBanner').style.display = 'none';
+}
+
 async function saveRecord() {
   if (!rateLimit('save', 3000)) { toast(t('rate_limited')); return; }
   if (!recordCtx.items.length) return toast(t('t_ex_req'));
@@ -3864,6 +3946,7 @@ async function saveRecord() {
     sets,
   };
   await commitWorkout(w);
+  clearDraft();
   recordCtx = null;
   closeScreen('recordScreen');
 }
@@ -4102,6 +4185,7 @@ async function saveManualCardio() {
     gpsVerified: false,
   };
   await commitWorkout(w);
+  clearDraft();
   closeScreen('cardioManualScreen');
 }
 
@@ -4122,6 +4206,7 @@ async function saveFree() {
     note: $('freeNote').value.trim(),
   };
   await commitWorkout(w);
+  clearDraft();
   closeScreen('freeScreen');
 }
 

@@ -1863,7 +1863,7 @@ function kgToLbs(kg) { return kg * 2.20462; }
 function lbsToKg(lbs) { return lbs * 0.453592; }
 function displayW(kg) { return weightUnit === 'lbs' ? Math.round(kgToLbs(kg) * 10) / 10 : kg; }
 function toKg(val) { return weightUnit === 'lbs' ? lbsToKg(val) : val; }
-function displayWStr(kg) { const v = displayW(kg); return v % 1 === 0 ? v.toString() : v.toFixed(1); }
+function displayWStr(kg) { const v = displayW(kg); return v % 1 === 0 ? v.toString() : parseFloat(v.toFixed(2)).toString(); }
 function setWeightUnit(u) {
   weightUnit = u;
   localStorage.setItem(WUNIT_KEY, u);
@@ -3737,7 +3737,7 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   }
   const isBW = ex.type === 'bodyweight';
   const isTime = ex.type === 'time';
-  const wStep = weightUnit === 'lbs' ? 5 : 2.5;
+  const wStep = weightUnit === 'lbs' ? 1 : 0.25;
   const weightField = !isBW && !isTime ? `
     <div class="stepper">
       <span class="lbl">${wUnit()}</span>

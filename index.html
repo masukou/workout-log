@@ -3632,10 +3632,9 @@ function startRoutine(routineId) {
           sets.push({ distance, durationMin });
         } else {
           let weight = it.defaultWeight || 0;
-          let reps = ex?.type === 'time' ? (it.timerSec || 30) : 0;
+          const reps = ex?.type === 'time' ? (it.timerSec || 30) : 0;
           if (prev && prev[i]) {
             weight = prev[i].weight ?? weight;
-            reps = prev[i].reps ?? reps;
           }
           sets.push({ weight, reps });
         }

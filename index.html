@@ -3338,7 +3338,7 @@ function defaultLabel(ex, it) {
     if (it.cardioMode === 'duration') return `${it.defaultDuration || 20}${M} × ${it.defaultSets || 1}`;
     return `${it.defaultDistance || 3}km × ${it.defaultSets || 1}`;
   }
-  return `${displayWStr(it.defaultWeight || 20)}${wUnit()} × ${it.defaultReps || 10}${R} × ${it.defaultSets || 3}`;
+  return `${displayWStr(it.defaultWeight || 0)}${wUnit()} × ${it.defaultSets || 3}${currentLang === 'en' ? ' sets' : 'セット'}`;
 }
 
 function moveItem(i, dir) {
@@ -3430,12 +3430,10 @@ function openConfig(ex, existing, cb) {
 
   if (ex.type === 'weight') {
     wRow.style.display = '';
-    rRow.style.display = '';
+    rRow.style.display = 'none';
     sRow.style.display = '';
-    rLbl.textContent = t('cfg_reps');
     hint.textContent = t('cfg_hint_weight');
-    $('cfgWeight').value = displayW(existing?.defaultWeight ?? 20);
-    $('cfgReps').value = existing?.defaultReps ?? 10;
+    $('cfgWeight').value = displayW(existing?.defaultWeight ?? 0);
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'bodyweight') {
     wRow.style.display = 'none';
@@ -3510,7 +3508,6 @@ function saveConfig() {
   const cfg = { defaultSets: sets };
   if (configType === 'weight') {
     cfg.defaultWeight = weight;
-    cfg.defaultReps = reps;
   } else if (configType === 'bodyweight') {
     cfg.defaultReps = reps;
   } else if (configType === 'time') {
@@ -3587,10 +3584,10 @@ function startRoutine(routineId) {
           sets.push({ distance, durationMin });
         } else {
           let weight = it.defaultWeight || 0;
-          let reps = it.defaultReps || (ex?.type==='time' ? (it.timerSec||30) : 10);
+          let reps = ex?.type === 'time' ? (it.timerSec || 30) : 0;
           if (prev && prev[i]) {
-            weight = prev[i].weight;
-            reps = prev[i].reps;
+            weight = prev[i].weight ?? weight;
+            reps = prev[i].reps ?? reps;
           }
           if (ex?.type === 'bodyweight') weight = 0;
           sets.push({ weight, reps });

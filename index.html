@@ -439,6 +439,7 @@
   .rank-info { flex: 1; min-width: 0; }
   .rank-name { font-weight: 800; font-size: 14px; }
   .rank-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .rank-cum { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 700; }
   .rank-status {
     font-size: 11px;
     padding: 4px 8px;
@@ -2683,7 +2684,21 @@ function iconFor(type) {
 async function renderRanking() {
   const { data: profiles } = await sb.from('profiles').select('*');
   const today = todayStr();
-  const { data: todayWorkouts } = await sb.from('workouts').select('*').eq('date', today);
+  const [{ data: todayWorkouts }, { data: allWorkouts }] = await Promise.all([
+    sb.from('workouts').select('user_id,date,type,sets,distance,duration_min').eq('date', today),
+    sb.from('workouts').select('user_id,type,sets,distance'),
+  ]);
+
+  // cumulative stats per user
+  const cumVol = {}, cumDist = {};
+  (allWorkouts || []).forEach(w => {
+    const uid = w.user_id;
+    if (w.type === 'strength') {
+      const vol = (w.sets || []).reduce((s, st) => s + (Number(st.weight)||0) * (Number(st.reps)||0), 0);
+      cumVol[uid] = (cumVol[uid] || 0) + vol;
+    }
+    if (w.type === 'cardio' && w.distance) cumDist[uid] = (cumDist[uid] || 0) + Number(w.distance);
+  });
 
   const list = (profiles || []).filter(p => p.id === currentUserId || (!isBlocked(p.id) && !p.is_private)).map(p => {
     const uWorkouts = (todayWorkouts || []).filter(w => w.user_id === p.id);
@@ -2697,6 +2712,8 @@ async function renderRanking() {
       id: p.id, name: p.username, avatar: p.avatar || '🐻',
       streak: p.streak || 0, maxStreak: p.max_streak || 0,
       todayStats, didToday: uWorkouts.length > 0 || p.last_workout_date === today,
+      totalVolume: cumVol[p.id] || 0,
+      totalDist: cumDist[p.id] || 0,
     };
   });
   list.sort((a,b) => {
@@ -2714,12 +2731,18 @@ async function renderRanking() {
       : `<div class="rank-status not">${t('not_yet')}</div>`;
     const todayShort = formatTodayShort(u.todayStats) || t('no_record_today');
     const dayUnit = currentLang === 'en' ? 'd' : '日';
-    return `<div class="rank-item ${u.name===currentUser?'me':''}" onclick="showUserDetail('${u.id}')">
+    const cumParts = [];
+    if (u.totalVolume > 0) cumParts.push(`💪 ${formatVolume(u.totalVolume)}`);
+    if (u.totalDist > 0) cumParts.push(`🏃 ${u.totalDist.toFixed(1)}km`);
+    const cumLine = cumParts.length
+      ? `<div class="rank-cum">${cumParts.join(' · ')}</div>` : '';
+    return `<div class="rank-item ${u.id===currentUserId?'me':''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i<3?'top':''}">${medal}</div>
       <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
+        ${cumLine}
       </div>
       ${statusHtml}
     </div>`;

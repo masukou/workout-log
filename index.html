@@ -1047,19 +1047,11 @@
   <div class="screen-body">
     <div class="card">
       <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="lbl_distance">距離 (km)</div>
-      <div class="stepper">
-        <button onclick="stepManual('dist',-0.5)">−</button>
-        <input type="number" id="manualDist" value="3" step="0.1">
-        <button onclick="stepManual('dist',0.5)">+</button>
-      </div>
+      <input class="dial-input" type="number" id="manualDist" value="3" step="0.5" data-step="0.5" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
     <div class="card">
       <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="lbl_duration_opt">時間 (分) ※任意</div>
-      <div class="stepper">
-        <button onclick="stepManual('time',-1)">−</button>
-        <input type="number" id="manualTime" value="20" step="1">
-        <button onclick="stepManual('time',1)">+</button>
-      </div>
+      <input class="dial-input" type="number" id="manualTime" value="20" step="1" data-step="1" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
     <textarea class="note-input" id="manualNote" data-i18n-ph="ph_note" placeholder="メモ(任意)"></textarea>
   </div>
@@ -1139,29 +1131,17 @@
 
     <div id="cfgWeightRow" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="cfg_weight">重量 (kg)</div>
-      <div class="stepper">
-        <button id="cfgWMinus" onclick="cfgStep('weight',weightUnit==='lbs'?-5:-2.5)">−</button>
-        <input type="number" id="cfgWeight" value="20" step="0.5">
-        <button id="cfgWPlus" onclick="cfgStep('weight',weightUnit==='lbs'?5:2.5)">+</button>
-      </div>
+      <input class="dial-input" type="number" id="cfgWeight" value="20" step="0.25" data-step="0.25" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
 
     <div id="cfgRepsRow" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" id="cfgRepsLbl">回数</div>
-      <div class="stepper">
-        <button onclick="cfgStep('reps',-1)">−</button>
-        <input type="number" id="cfgReps" value="10" step="1">
-        <button onclick="cfgStep('reps',1)">+</button>
-      </div>
+      <input class="dial-input" type="number" id="cfgReps" value="10" step="1" data-step="1" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
 
     <div id="cfgSetsRow" style="margin-bottom:16px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="cfg_sets">セット数</div>
-      <div class="stepper">
-        <button onclick="cfgStep('sets',-1)">−</button>
-        <input type="number" id="cfgSets" value="3" step="1">
-        <button onclick="cfgStep('sets',1)">+</button>
-      </div>
+      <input class="dial-input" type="number" id="cfgSets" value="3" step="1" data-step="1" data-min="1" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
 
     <div style="display:flex;gap:8px">
@@ -3444,6 +3424,10 @@ function openConfig(ex, existing, cb) {
 
   cRow.style.display = 'none';
 
+  const wStep = weightUnit === 'lbs' ? 1 : 0.25;
+  $('cfgWeight').dataset.step = wStep;
+  $('cfgWeight').step = wStep;
+
   if (ex.type === 'weight') {
     wRow.style.display = '';
     rRow.style.display = '';
@@ -3495,9 +3479,11 @@ function cfgSetCardioMode(mode) {
   if (mode === 'distance') {
     $('cfgRepsLbl').textContent = t('lbl_distance');
     $('cfgReps').step = '0.5';
+    $('cfgReps').dataset.step = '0.5';
   } else {
     $('cfgRepsLbl').textContent = t('cfg_duration_min');
     $('cfgReps').step = '1';
+    $('cfgReps').dataset.step = '1';
   }
 }
 
@@ -3772,6 +3758,7 @@ let _dial = null;
 document.addEventListener('touchstart', e => {
   const el = e.target.closest('.dial-input');
   if (!el) return;
+  e.preventDefault(); // キーボード・スクロール抑制
   _dial = {
     el,
     startY: e.touches[0].clientY,
@@ -3784,22 +3771,26 @@ document.addEventListener('touchstart', e => {
     isWeight: el.dataset.type === 'weight',
     moved: false,
   };
-}, { passive: true });
+}, { passive: false });
 document.addEventListener('touchmove', e => {
   if (!_dial) return;
   e.preventDefault();
   const dy = _dial.startY - e.touches[0].clientY;
-  const steps = Math.round(dy / 8);
+  const steps = Math.round(dy / 12);
   const newVal = Math.max(_dial.min, Math.round((_dial.startVal + steps * _dial.step) / _dial.step) * _dial.step);
   if (newVal !== parseFloat(_dial.el.value)) {
     _dial.el.value = newVal;
     _dial.moved = true;
-    if (_dial.isWeight) setValW(_dial.exIdx, _dial.setIdx, newVal);
-    else setVal(_dial.exIdx, _dial.setIdx, _dial.field, newVal);
+    if (!isNaN(_dial.exIdx)) {
+      if (_dial.isWeight) setValW(_dial.exIdx, _dial.setIdx, newVal);
+      else setVal(_dial.exIdx, _dial.setIdx, _dial.field, newVal);
+    } else {
+      _dial.el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
 }, { passive: false });
 document.addEventListener('touchend', () => {
-  if (_dial?.moved) renderRecord();
+  if (_dial?.moved && !isNaN(_dial.exIdx)) renderRecord();
   _dial = null;
 });
 

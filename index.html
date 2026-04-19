@@ -3677,14 +3677,24 @@ function renderRecord() {
       }).filter(Boolean).join(', ');
     }
 
-    // Status badge
-    const sessions = getExerciseSessions(state, it.exerciseId);
-    const status = computeExerciseStatus(sessions);
-    const statusBadge = status && status.status !== 'challenge'
-      ? `<span class="status-badge ${status.status}">${status.icon} ${escapeHtml(status.text)}</span>`
-      : '';
+    // Status badge: compare current in-progress sets vs last completed session
+    let statusBadge = '';
+    if (ex.type === 'weight' && prev) {
+      const curTop = getTopSet(it.sets);
+      const prevTop = getTopSet(prev);
+      if (curTop && prevTop) {
+        if (curTop.weight > prevTop.weight) {
+          const diff = displayW(curTop.weight - prevTop.weight);
+          const diffStr = diff % 1 === 0 ? diff.toString() : parseFloat(diff.toFixed(2)).toString();
+          statusBadge = `<span class="status-badge weight_up">🏆 ${t('status_weight_up', diffStr)}</span>`;
+        } else if (curTop.weight === prevTop.weight && curTop.reps > prevTop.reps) {
+          statusBadge = `<span class="status-badge overcame">⬆️ ${t('status_overcame', curTop.reps - prevTop.reps)}</span>`;
+        }
+      }
+    }
 
     const historyBtn = `<button class="icon-btn" onclick="openExerciseHistory('${it.exerciseId}')" style="font-size:16px" title="${t('title_ex_history')}">📊</button>`;
+    const copyBtn = recordCtx.routineId ? '' : `<button class="icon-btn" onclick="copyExercise(${idx})" style="font-size:16px" title="${currentLang==='en'?'Copy':'コピー'}">📋</button>`;
 
     const timerBtn = ex.type === 'time' || it.timerSec
       ? `<button class="timer-btn" onclick="openTimer(${it.timerSec||30}, '${escapeHtml(exName(ex))}')">⏱ ${it.timerSec||30}${t('unit_sec')}</button>`
@@ -3699,7 +3709,7 @@ function renderRecord() {
         <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
           ${timerBtn}
           ${historyBtn}
-          <button class="icon-btn" onclick="copyExercise(${idx})" style="font-size:16px" title="${currentLang==='en'?'Copy':'コピー'}">📋</button>
+          ${copyBtn}
           <button class="icon-btn" onclick="removeExerciseFromRecord(${idx})" style="font-size:16px">🗑</button>
         </div>
       </div>

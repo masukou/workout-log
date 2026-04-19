@@ -3839,7 +3839,8 @@ function addExerciseToRecord() {
 }
 
 function cancelRecord() {
-  if (!confirm(t('t_confirm_cancel_rec'))) return;
+  const hasDraft = !!localStorage.getItem(DRAFT_KEY);
+  if (!hasDraft && !confirm(t('t_confirm_cancel_rec'))) return;
   recordCtx = null;
   closeScreen('recordScreen');
 }

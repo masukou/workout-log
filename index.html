@@ -687,7 +687,7 @@
 
   .verified-badge {
     display: inline-flex; align-items: center; gap: 2px;
-    font-size: 11px; font-weight: 800; color: #1e88e5; background: #e3f2fd;
+    font-size: 11px; font-weight: 800; color: #00b0c8; background: #e0f7fa;
     padding: 1px 6px; border-radius: 8px; margin-left: 4px;
   }
 
@@ -987,11 +987,35 @@
   </div>
 </div>
 
-<!-- ============ CARDIO RECORD ============ -->
-<div class="screen" id="cardioScreen">
+<!-- ============ CARDIO MODE SELECT ============ -->
+<div class="screen" id="cardioModeScreen">
   <div class="screen-head">
-    <button class="icon-btn" onclick="cancelCardio()">✕</button>
+    <button class="icon-btn" onclick="closeScreen('cardioModeScreen')">✕</button>
     <div class="title" data-i18n="title_cardio">ランニングを記録</div>
+  </div>
+  <div class="screen-body" style="display:flex;flex-direction:column;gap:12px;padding-top:24px">
+    <button onclick="openGpsCardio()" style="background:var(--card);border:2px solid var(--border);border-radius:18px;padding:22px 18px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:16px">
+      <span style="font-size:36px">📍</span>
+      <div>
+        <div style="font-size:16px;font-weight:900" data-i18n="gps_mode_title">GPS計測</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px" data-i18n="gps_mode_sub">走りながら距離を自動計測</div>
+      </div>
+    </button>
+    <button onclick="openManualCardio()" style="background:var(--card);border:2px solid var(--border);border-radius:18px;padding:22px 18px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:16px">
+      <span style="font-size:36px">✏️</span>
+      <div>
+        <div style="font-size:16px;font-weight:900" data-i18n="manual_mode_title">手動入力</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px" data-i18n="manual_mode_sub">距離・時間を自分で入力</div>
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- ============ CARDIO GPS RECORD ============ -->
+<div class="screen" id="cardioGpsScreen">
+  <div class="screen-head">
+    <button class="icon-btn" onclick="cancelGpsCardio()">✕</button>
+    <div class="title" data-i18n="gps_mode_title">GPS計測</div>
   </div>
   <div class="screen-body">
     <div class="gps-tracker" id="gpsTracker">
@@ -1005,27 +1029,40 @@
       </button>
       <div id="gpsWakeLockNote" style="display:none;font-size:11px;color:var(--muted);margin-top:8px" data-i18n="gps_screen_on">⚠️ 画面をオンのままにしてください</div>
     </div>
-    <div style="text-align:center;font-size:12px;color:var(--muted);margin:-6px 0 10px" data-i18n="gps_or_manual">または手動で入力 ↓</div>
+    <textarea class="note-input" id="gpsNote" data-i18n-ph="ph_note" placeholder="メモ(任意)"></textarea>
+  </div>
+  <div class="screen-footer">
+    <button class="btn" onclick="saveGpsCardio()" data-i18n="btn_record">記録する</button>
+  </div>
+</div>
+
+<!-- ============ CARDIO MANUAL RECORD ============ -->
+<div class="screen" id="cardioManualScreen">
+  <div class="screen-head">
+    <button class="icon-btn" onclick="closeScreen('cardioManualScreen')">✕</button>
+    <div class="title" data-i18n="manual_mode_title">手動入力</div>
+  </div>
+  <div class="screen-body">
     <div class="card">
       <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="lbl_distance">距離 (km)</div>
       <div class="stepper">
-        <button onclick="stepCardio('dist',-0.5)">−</button>
-        <input type="number" id="cardioDist" value="3" step="0.1">
-        <button onclick="stepCardio('dist',0.5)">+</button>
+        <button onclick="stepManual('dist',-0.5)">−</button>
+        <input type="number" id="manualDist" value="3" step="0.1">
+        <button onclick="stepManual('dist',0.5)">+</button>
       </div>
     </div>
     <div class="card">
       <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="lbl_duration_opt">時間 (分) ※任意</div>
       <div class="stepper">
-        <button onclick="stepCardio('time',-1)">−</button>
-        <input type="number" id="cardioTime" value="20" step="1">
-        <button onclick="stepCardio('time',1)">+</button>
+        <button onclick="stepManual('time',-1)">−</button>
+        <input type="number" id="manualTime" value="20" step="1">
+        <button onclick="stepManual('time',1)">+</button>
       </div>
     </div>
-    <textarea class="note-input" id="cardioNote" data-i18n-ph="ph_note" placeholder="メモ(任意)"></textarea>
+    <textarea class="note-input" id="manualNote" data-i18n-ph="ph_note" placeholder="メモ(任意)"></textarea>
   </div>
   <div class="screen-footer">
-    <button class="btn" onclick="saveCardio()" data-i18n="btn_record">記録する</button>
+    <button class="btn" onclick="saveManualCardio()" data-i18n="btn_record">記録する</button>
   </div>
 </div>
 
@@ -1428,6 +1465,10 @@ const I18N = {
     t_added: '追加しました',
     custom_cat: 'カスタム',
     t_set_min: 'セットは1つ以上必要です',
+    gps_mode_title: 'GPS計測',
+    gps_mode_sub: '走りながら距離を自動計測',
+    manual_mode_title: '手動入力',
+    manual_mode_sub: '距離・時間を自分で入力',
     gps_title: '📍 GPS計測',
     gps_start: '📍 GPS計測を開始',
     gps_stop: '計測を停止',
@@ -1657,6 +1698,10 @@ const I18N = {
     t_added: 'Added',
     custom_cat: 'Custom',
     t_set_min: 'At least one set is required',
+    gps_mode_title: 'GPS Tracking',
+    gps_mode_sub: 'Auto-measure distance while running',
+    manual_mode_title: 'Manual Entry',
+    manual_mode_sub: 'Enter distance & time yourself',
     gps_title: '📍 GPS Tracking',
     gps_start: '📍 Start GPS Tracking',
     gps_stop: 'Stop Tracking',
@@ -3835,12 +3880,23 @@ function releaseWakeLock() {
 
 function startCardio() {
   editingWorkoutId = null;
+  $('cardioModeScreen').classList.add('active');
+}
+
+function openGpsCardio() {
+  closeScreen('cardioModeScreen');
   gpsUsed = false;
   resetGpsDisplay();
-  $('cardioDist').value = 3;
-  $('cardioTime').value = 20;
-  $('cardioNote').value = '';
-  $('cardioScreen').classList.add('active');
+  $('gpsNote').value = '';
+  $('cardioGpsScreen').classList.add('active');
+}
+
+function openManualCardio() {
+  closeScreen('cardioModeScreen');
+  $('manualDist').value = 3;
+  $('manualTime').value = 20;
+  $('manualNote').value = '';
+  $('cardioManualScreen').classList.add('active');
 }
 
 function resetGpsDisplay() {
@@ -3919,12 +3975,9 @@ function stopGps() {
   $('gpsTracker').classList.remove('tracking');
 
   const dist = calcGpsDistance();
-  const elapsed = Math.floor((Date.now() - gpsStartTime) / 60000);
   if (dist > 0.01) {
     gpsUsed = true;
-    $('cardioDist').value = dist.toFixed(2);
-    $('cardioTime').value = elapsed || 1;
-    $('gpsPace').textContent = currentLang === 'en' ? '✓ Distance applied' : '✓ 距離を反映しました';
+    $('gpsPace').textContent = currentLang === 'en' ? `✓ ${dist.toFixed(2)} km recorded` : `✓ ${dist.toFixed(2)} km 計測完了`;
   } else {
     $('gpsPace').textContent = gpsPositions.length > 0
       ? (currentLang === 'en' ? 'Distance too short' : '距離が短すぎます')
@@ -3932,9 +3985,9 @@ function stopGps() {
   }
 }
 
-function cancelCardio() {
+function cancelGpsCardio() {
   resetGpsDisplay();
-  closeScreen('cardioScreen');
+  closeScreen('cardioGpsScreen');
 }
 
 function calcGpsDistance() {
@@ -3983,13 +4036,33 @@ function updateGpsTimer() {
   $('gpsTime').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-function stepCardio(f, d) {
-  const el = f==='dist' ? $('cardioDist') : $('cardioTime');
+function stepManual(f, d) {
+  const el = f==='dist' ? $('manualDist') : $('manualTime');
   el.value = Math.max(0, Number(el.value||0) + d).toFixed(f==='dist'?1:0);
 }
-async function saveCardio() {
-  const dist = Number($('cardioDist').value)||0;
-  const time = Number($('cardioTime').value)||0;
+
+async function saveGpsCardio() {
+  if (!gpsUsed) return toast(currentLang === 'en' ? 'Please start GPS tracking first' : 'GPS計測を開始してから保存してください');
+  const dist = calcGpsDistance();
+  const elapsed = gpsStartTime ? Math.max(1, Math.floor((Date.now() - gpsStartTime) / 60000)) : null;
+  const w = {
+    id: editingWorkoutId || uid(),
+    date: todayStr(),
+    type: 'cardio',
+    title: t('title_running_log'),
+    distance: Math.round(dist * 100) / 100,
+    durationMin: elapsed,
+    note: $('gpsNote').value.trim(),
+    gpsVerified: true,
+  };
+  await commitWorkout(w);
+  resetGpsDisplay();
+  closeScreen('cardioGpsScreen');
+}
+
+async function saveManualCardio() {
+  const dist = Number($('manualDist').value)||0;
+  const time = Number($('manualTime').value)||0;
   if (dist <= 0) return toast(t('t_dist_req'));
   const w = {
     id: editingWorkoutId || uid(),
@@ -3998,12 +4071,11 @@ async function saveCardio() {
     title: t('title_running_log'),
     distance: dist,
     durationMin: time || null,
-    note: $('cardioNote').value.trim(),
-    gpsVerified: gpsUsed,
+    note: $('manualNote').value.trim(),
+    gpsVerified: false,
   };
   await commitWorkout(w);
-  resetGpsDisplay();
-  closeScreen('cardioScreen');
+  closeScreen('cardioManualScreen');
 }
 
 function startFreeLog() {
@@ -4077,10 +4149,10 @@ function editWorkout(id) {
   if (!w) return;
   editingWorkoutId = id;
   if (w.type === 'cardio') {
-    $('cardioDist').value = w.distance || 0;
-    $('cardioTime').value = w.durationMin || 0;
-    $('cardioNote').value = w.note || '';
-    $('cardioScreen').classList.add('active');
+    $('manualDist').value = w.distance || 0;
+    $('manualTime').value = w.durationMin || 0;
+    $('manualNote').value = w.note || '';
+    $('cardioManualScreen').classList.add('active');
   } else if (w.type === 'other') {
     $('freeTitle').value = w.title || '';
     $('freeNote').value = w.note || '';

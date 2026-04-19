@@ -1185,9 +1185,14 @@
       <input class="dial-input" type="number" id="cfgReps" value="10" step="1" data-step="1" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
     </div>
 
-    <div id="cfgSetsRow" style="margin-bottom:16px">
+    <div id="cfgSetsRow" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="cfg_sets">セット数</div>
-      <input class="dial-input" type="number" id="cfgSets" value="3" step="1" data-step="1" data-min="1" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
+      <input class="dial-input" type="number" id="cfgSets" value="3" step="1" data-step="1" data-min="1" onchange="renderCfgPerSetWeights()" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
+    </div>
+
+    <div id="cfgPerSetRow" style="display:none;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">各セットの重量</div>
+      <div id="cfgPerSetList"></div>
     </div>
 
     <div style="display:flex;gap:8px">
@@ -3396,6 +3401,10 @@ function defaultLabel(ex, it) {
     if (it.cardioMode === 'duration') return `${it.defaultDuration || 20}${M} × ${it.defaultSets || 1}`;
     return `${it.defaultDistance || 3}km × ${it.defaultSets || 1}`;
   }
+  if (it.setWeights && it.setWeights.length > 1) {
+    const ws = it.setWeights.map(w => displayWStr(w)).join('/');
+    return `${ws}${wUnit()} × ${it.defaultSets || 3}${currentLang === 'en' ? ' sets' : 'セット'}`;
+  }
   return `${displayWStr(it.defaultWeight || 0)}${wUnit()} × ${it.defaultSets || 3}${currentLang === 'en' ? ' sets' : 'セット'}`;
 }
 
@@ -3472,6 +3481,7 @@ function defaultPickerCb(ex) {
 let configCallback = null;
 let configType = 'weight';
 let configCardioMode = 'distance';
+let cfgSetWeights = []; // per-set weights array
 
 function openConfig(ex, existing, cb) {
   configCallback = cb;
@@ -3490,6 +3500,8 @@ function openConfig(ex, existing, cb) {
   const wStep = weightUnit === 'lbs' ? 1 : 0.25;
   $('cfgWeight').dataset.step = wStep;
   $('cfgWeight').step = wStep;
+
+  const hasPerSet = ex.type === 'weight' || ex.type === 'bodyweight';
 
   if (ex.type === 'weight') {
     wRow.style.display = '';
@@ -3528,7 +3540,49 @@ function openConfig(ex, existing, cb) {
     }
     $('cfgSets').value = existing?.defaultSets ?? 1;
   }
+
+  // per-set weights
+  $('cfgPerSetRow').style.display = hasPerSet ? '' : 'none';
+  if (hasPerSet) {
+    const n = parseInt($('cfgSets').value) || 1;
+    const base = displayW(parseFloat($('cfgWeight').value) || 0);
+    cfgSetWeights = existing?.setWeights
+      ? existing.setWeights.map(w => displayW(w))
+      : Array.from({ length: n }, () => base);
+    if (cfgSetWeights.length !== n) {
+      // resize: fill new slots with last value
+      while (cfgSetWeights.length < n) cfgSetWeights.push(cfgSetWeights[cfgSetWeights.length - 1] ?? base);
+      cfgSetWeights = cfgSetWeights.slice(0, n);
+    }
+    renderCfgPerSetWeights();
+  }
+
   $('configModal').classList.add('active');
+}
+
+function renderCfgPerSetWeights() {
+  if ($('cfgPerSetRow').style.display === 'none') return;
+  const n = Math.max(1, parseInt($('cfgSets').value) || 1);
+  const base = parseFloat($('cfgWeight').value) || 0;
+  // resize array to match new set count
+  while (cfgSetWeights.length < n) cfgSetWeights.push(cfgSetWeights[cfgSetWeights.length - 1] ?? base);
+  cfgSetWeights = cfgSetWeights.slice(0, n);
+  const wStep = weightUnit === 'lbs' ? 1 : 0.25;
+  $('cfgPerSetList').innerHTML = cfgSetWeights.map((w, i) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;width:48px;flex-shrink:0">セット${i+1}</span>
+      <button class="step-btn" onclick="cfgSetWeightStep(${i},${-wStep})">−</button>
+      <input type="number" value="${w}" step="${wStep}"
+        style="width:72px;text-align:center;font-size:20px;font-weight:800;border:2px solid var(--border);border-radius:10px;padding:4px 2px;background:var(--card)"
+        oninput="cfgSetWeights[${i}]=parseFloat(this.value)||0">
+      <button class="step-btn" onclick="cfgSetWeightStep(${i},${wStep})">+</button>
+      <span style="font-size:12px;color:var(--muted);font-weight:700">${wUnit()}</span>
+    </div>`).join('');
+}
+
+function cfgSetWeightStep(i, d) {
+  cfgSetWeights[i] = Math.max(0, Math.round(((cfgSetWeights[i] || 0) + d) / Math.abs(d)) * Math.abs(d));
+  renderCfgPerSetWeights();
 }
 
 function cfgSetCardioMode(mode) {
@@ -3570,8 +3624,10 @@ function saveConfig() {
   const cfg = { defaultSets: sets };
   if (configType === 'weight') {
     cfg.defaultWeight = weight;
+    cfg.setWeights = cfgSetWeights.slice(0, sets).map(w => toKg(w));
   } else if (configType === 'bodyweight') {
     cfg.defaultWeight = weight;
+    cfg.setWeights = cfgSetWeights.slice(0, sets).map(w => toKg(w));
   } else if (configType === 'time') {
     cfg.timerSec = reps;
   } else if (configType === 'cardio') {
@@ -3645,7 +3701,7 @@ function startRoutine(routineId) {
           }
           sets.push({ distance, durationMin });
         } else {
-          let weight = it.defaultWeight || 0;
+          let weight = (it.setWeights && it.setWeights[i] != null) ? it.setWeights[i] : (it.defaultWeight || 0);
           const reps = ex?.type === 'time' ? (it.timerSec || 30) : 0;
           if (prev && prev[i]) {
             weight = prev[i].weight ?? weight;

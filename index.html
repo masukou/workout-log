@@ -3333,7 +3333,7 @@ function defaultLabel(ex, it) {
   if (!ex) return '';
   const R = t('unit_reps'), S = t('unit_sec'), M = t('unit_min');
   if (ex.type === 'time') return `${it.timerSec || 30}${S} × ${it.defaultSets || 1}`;
-  if (ex.type === 'bodyweight') return `${it.defaultReps || 10}${R} × ${it.defaultSets || 3}`;
+  if (ex.type === 'bodyweight') return `${it.defaultSets || 3}${currentLang === 'en' ? ' sets' : 'セット'}`;
   if (ex.type === 'cardio') {
     if (it.cardioMode === 'duration') return `${it.defaultDuration || 20}${M} × ${it.defaultSets || 1}`;
     return `${it.defaultDistance || 3}km × ${it.defaultSets || 1}`;
@@ -3437,11 +3437,9 @@ function openConfig(ex, existing, cb) {
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'bodyweight') {
     wRow.style.display = 'none';
-    rRow.style.display = '';
+    rRow.style.display = 'none';
     sRow.style.display = '';
-    rLbl.textContent = t('cfg_reps');
     hint.textContent = t('cfg_hint_bw');
-    $('cfgReps').value = existing?.defaultReps ?? 10;
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'time') {
     wRow.style.display = 'none';
@@ -3509,7 +3507,6 @@ function saveConfig() {
   if (configType === 'weight') {
     cfg.defaultWeight = weight;
   } else if (configType === 'bodyweight') {
-    cfg.defaultReps = reps;
   } else if (configType === 'time') {
     cfg.timerSec = reps;
   } else if (configType === 'cardio') {

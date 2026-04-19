@@ -439,7 +439,8 @@
   .rank-info { flex: 1; min-width: 0; }
   .rank-name { font-weight: 800; font-size: 14px; }
   .rank-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .rank-cum { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 700; }
+  .rank-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+  .rank-cum { font-size: 10px; color: var(--muted); font-weight: 700; text-align: right; line-height: 1.5; }
   .rank-status {
     font-size: 11px;
     padding: 4px 8px;
@@ -2735,16 +2736,18 @@ async function renderRanking() {
     if (u.totalVolume > 0) cumParts.push(`💪 ${formatVolume(u.totalVolume)}`);
     if (u.totalDist > 0) cumParts.push(`🏃 ${u.totalDist.toFixed(1)}km`);
     const cumLine = cumParts.length
-      ? `<div class="rank-cum">${cumParts.join(' · ')}</div>` : '';
+      ? `<div class="rank-cum">${cumParts.join('<br>')}</div>` : '';
     return `<div class="rank-item ${u.id===currentUserId?'me':''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i<3?'top':''}">${medal}</div>
       <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
+      </div>
+      <div class="rank-right">
+        ${statusHtml}
         ${cumLine}
       </div>
-      ${statusHtml}
     </div>`;
   }).join('');
   renderTimeline(profiles);

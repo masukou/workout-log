@@ -296,6 +296,8 @@
   .stepper input::-webkit-outer-spin-button,
   .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .dial-input:focus { border-color: var(--primary); background: #fff; outline: none; }
+  .cfg-set-w-input::-webkit-outer-spin-button,
+  .cfg-set-w-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .stepper input::-webkit-outer-spin-button,
   .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -1178,6 +1180,7 @@
     <div id="cfgWeightRow" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px" data-i18n="cfg_weight">重量 (kg)</div>
       <input class="dial-input" type="number" id="cfgWeight" value="20" step="0.25" data-step="0.25" data-min="0" style="width:100%;text-align:center;font-size:28px;font-weight:700;border:none;background:transparent;outline:none;color:var(--text)">
+      <button onclick="applyWeightToAll()" style="margin-top:6px;width:100%;padding:8px;border-radius:10px;border:2px solid var(--border);background:var(--card);font-size:13px;font-weight:700;color:var(--secondary)">全セットに適用</button>
     </div>
 
     <div id="cfgRepsRow" style="margin-bottom:12px">
@@ -3573,11 +3576,18 @@ function renderCfgPerSetWeights() {
       <span style="font-size:12px;color:var(--muted);font-weight:700;width:48px;flex-shrink:0">セット${i+1}</span>
       <button class="step-btn" onclick="cfgSetWeightStep(${i},${-wStep})">−</button>
       <input type="number" value="${w}" step="${wStep}"
-        style="width:72px;text-align:center;font-size:20px;font-weight:800;border:2px solid var(--border);border-radius:10px;padding:4px 2px;background:var(--card)"
-        oninput="cfgSetWeights[${i}]=parseFloat(this.value)||0">
+        style="width:72px;text-align:center;font-size:20px;font-weight:800;border:2px solid var(--border);border-radius:10px;padding:4px 2px;background:var(--card);-moz-appearance:textfield;appearance:none"
+        oninput="cfgSetWeights[${i}]=parseFloat(this.value)||0"
+        class="cfg-set-w-input">
       <button class="step-btn" onclick="cfgSetWeightStep(${i},${wStep})">+</button>
       <span style="font-size:12px;color:var(--muted);font-weight:700">${wUnit()}</span>
     </div>`).join('');
+}
+
+function applyWeightToAll() {
+  const w = parseFloat($('cfgWeight').value) || 0;
+  cfgSetWeights = cfgSetWeights.map(() => w);
+  renderCfgPerSetWeights();
 }
 
 function cfgSetWeightStep(i, d) {

@@ -272,32 +272,24 @@
   .stepper {
     display: flex;
     align-items: center;
-    gap: 3px;
-    flex: 1;
+    gap: 4px;
   }
-  .stepper .lbl { font-size: 10px; color: var(--muted); font-weight: 700; min-width: 16px; flex-shrink: 0; }
-  .stepper button {
-    width: 28px; height: 28px;
-    border: 2px solid var(--border);
-    background: #fff;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--text);
-    flex-shrink: 0;
-  }
-  .stepper input {
-    width: 48px;
+  .stepper .lbl { font-size: 10px; color: var(--muted); font-weight: 700; min-width: 14px; flex-shrink: 0; }
+  .stepper input, .dial-input {
+    width: 58px;
     text-align: center;
     padding: 5px 2px;
     border: 2px solid var(--border);
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 700;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 900;
     -moz-appearance: textfield;
-    flex-shrink: 1;
-    min-width: 0;
+    background: var(--card);
+    touch-action: none;
   }
+  .stepper input::-webkit-outer-spin-button,
+  .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .dial-input:focus { border-color: var(--primary); background: #fff; outline: none; }
   .stepper input::-webkit-outer-spin-button,
   .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -3690,6 +3682,7 @@ function renderRecord() {
         <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
           ${timerBtn}
           ${historyBtn}
+          <button class="icon-btn" onclick="copyExercise(${idx})" style="font-size:16px" title="${currentLang==='en'?'Copy':'コピー'}">📋</button>
           <button class="icon-btn" onclick="removeExerciseFromRecord(${idx})" style="font-size:16px">🗑</button>
         </div>
       </div>
@@ -3727,15 +3720,11 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
     const inner = mode === 'distance'
       ? `<div class="stepper">
           <span class="lbl">km</span>
-          <button onclick="stepSet(${exIdx},${setIdx},'distance',-0.5)">−</button>
-          <input type="number" value="${s.distance||0}" step="0.1" onchange="setVal(${exIdx},${setIdx},'distance',this.value)">
-          <button onclick="stepSet(${exIdx},${setIdx},'distance',0.5)">+</button>
+          <input class="dial-input" type="number" value="${s.distance||0}" step="0.5" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="distance" data-step="0.5" data-min="0" onchange="setVal(${exIdx},${setIdx},'distance',this.value)">
         </div>`
       : `<div class="stepper">
           <span class="lbl">${currentLang==='en'?'min':'分'}</span>
-          <button onclick="stepSet(${exIdx},${setIdx},'durationMin',-1)">−</button>
-          <input type="number" value="${s.durationMin||0}" step="1" onchange="setVal(${exIdx},${setIdx},'durationMin',this.value)">
-          <button onclick="stepSet(${exIdx},${setIdx},'durationMin',1)">+</button>
+          <input class="dial-input" type="number" value="${s.durationMin||0}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="durationMin" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'durationMin',this.value)">
         </div>`;
     return `<div>
       <div class="set-row">
@@ -3752,17 +3741,13 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   const weightField = !isBW && !isTime ? `
     <div class="stepper">
       <span class="lbl">${wUnit()}</span>
-      <button onclick="stepSet(${exIdx},${setIdx},'weight',${-wStep})">−</button>
-      <input type="number" value="${displayWStr(s.weight)}" step="${weightUnit === 'lbs' ? 1 : 0.5}" onchange="setValW(${exIdx},${setIdx},this.value)">
-      <button onclick="stepSet(${exIdx},${setIdx},'weight',${wStep})">+</button>
+      <input class="dial-input" type="number" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
   const repsField = `
     <div class="stepper">
       <span class="lbl">${repsLbl}</span>
-      <button onclick="stepSet(${exIdx},${setIdx},'reps',-1)">−</button>
-      <input type="number" value="${s.reps}" step="1" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
-      <button onclick="stepSet(${exIdx},${setIdx},'reps',1)">+</button>
+      <input class="dial-input" type="number" value="${s.reps}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="reps" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
     </div>`;
   return `<div>
     <div class="set-row">
@@ -3774,6 +3759,49 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
     ${prevHint}
   </div>`;
 }
+
+function copyExercise(idx) {
+  const src = recordCtx.items[idx];
+  const copy = JSON.parse(JSON.stringify(src));
+  recordCtx.items.splice(idx + 1, 0, copy);
+  renderRecord();
+}
+
+// ---- Dial drag (vertical swipe to change value) ----
+let _dial = null;
+document.addEventListener('touchstart', e => {
+  const el = e.target.closest('.dial-input');
+  if (!el) return;
+  _dial = {
+    el,
+    startY: e.touches[0].clientY,
+    startVal: parseFloat(el.value) || 0,
+    step: parseFloat(el.dataset.step) || 1,
+    min: parseFloat(el.dataset.min) || 0,
+    exIdx: parseInt(el.dataset.exidx),
+    setIdx: parseInt(el.dataset.setidx),
+    field: el.dataset.field,
+    isWeight: el.dataset.type === 'weight',
+    moved: false,
+  };
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!_dial) return;
+  e.preventDefault();
+  const dy = _dial.startY - e.touches[0].clientY;
+  const steps = Math.round(dy / 8);
+  const newVal = Math.max(_dial.min, Math.round((_dial.startVal + steps * _dial.step) / _dial.step) * _dial.step);
+  if (newVal !== parseFloat(_dial.el.value)) {
+    _dial.el.value = newVal;
+    _dial.moved = true;
+    if (_dial.isWeight) setValW(_dial.exIdx, _dial.setIdx, newVal);
+    else setVal(_dial.exIdx, _dial.setIdx, _dial.field, newVal);
+  }
+}, { passive: false });
+document.addEventListener('touchend', () => {
+  if (_dial?.moved) renderRecord();
+  _dial = null;
+});
 
 function stepSet(ex, si, field, d) {
   const s = recordCtx.items[ex].sets[si];

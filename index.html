@@ -439,16 +439,14 @@
   .rank-info { flex: 1; min-width: 0; }
   .rank-name { font-weight: 800; font-size: 14px; }
   .rank-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .rank-cum { font-size: 10px; color: var(--muted); font-weight: 700; text-align: left; line-height: 1.6; flex-shrink: 0; width: 68px; }
+  .rank-cum { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 2px; }
   .rank-status {
     font-size: 11px;
-    padding: 4px 0;
+    padding: 4px 8px;
     border-radius: 8px;
     font-weight: 800;
     white-space: nowrap;
     flex-shrink: 0;
-    width: 72px;
-    text-align: center;
   }
   .rank-status.done { background: #fff3ee; color: var(--primary); }
   .rank-status.not { background: #f1f1f1; color: var(--muted); }
@@ -2744,21 +2742,22 @@ async function renderRanking() {
     const statusHtml = u.didToday
       ? `<div class="rank-status done">${t('did_today')}</div>`
       : `<div class="rank-status not">${t('not_yet')}</div>`;
-    const todayShort = formatTodayShort(u.todayStats) || t('no_record_today');
+    const todayShort = formatTodayShort(u.todayStats);
     const dayUnit = currentLang === 'en' ? 'd' : '日';
+    const metaParts = [`🔥${u.streak}${dayUnit}`];
+    if (todayShort) metaParts.push(todayShort);
     const cumParts = [];
     if (u.totalVolume > 0) cumParts.push(`💪 ${formatVolume(u.totalVolume)}`);
     if (u.totalDist > 0) cumParts.push(`🏃 ${u.totalDist.toFixed(1)}km`);
-    const cumLine = cumParts.length
-      ? `<div class="rank-cum">${cumParts.join('<br>')}</div>` : '';
+    const cumLine = cumParts.length ? `<div class="rank-cum">${cumParts.join(' · ')}</div>` : '';
     return `<div class="rank-item ${u.id===currentUserId?'me':''}" onclick="showUserDetail('${u.id}')">
       <div class="rank-num ${i<3?'top':''}">${medal}</div>
       <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
-        <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
+        <div class="rank-meta">${metaParts.join(' · ')}</div>
+        ${cumLine}
       </div>
-      ${cumLine}
       ${statusHtml}
     </div>`;
   }).join('');

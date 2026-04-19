@@ -439,8 +439,7 @@
   .rank-info { flex: 1; min-width: 0; }
   .rank-name { font-weight: 800; font-size: 14px; }
   .rank-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .rank-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
-  .rank-cum { font-size: 10px; color: var(--muted); font-weight: 700; text-align: right; line-height: 1.5; }
+  .rank-cum { font-size: 10px; color: var(--muted); font-weight: 700; text-align: right; line-height: 1.6; flex-shrink: 0; }
   .rank-status {
     font-size: 11px;
     padding: 4px 8px;
@@ -2744,10 +2743,8 @@ async function renderRanking() {
         <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
         <div class="rank-meta">🔥${u.streak}${dayUnit} · ${todayShort}</div>
       </div>
-      <div class="rank-right">
-        ${statusHtml}
-        ${cumLine}
-      </div>
+      ${cumLine}
+      ${statusHtml}
     </div>`;
   }).join('');
   renderTimeline(profiles);

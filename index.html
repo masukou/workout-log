@@ -3772,7 +3772,6 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
         ${inner}
       </div>
       <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
-      ${prevHint}
     </div>`;
   }
   const isBW = ex.type === 'bodyweight';
@@ -3797,7 +3796,6 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
       ${repsField}
     </div>
     <button class="set-del" onclick="removeSet(${exIdx},${setIdx})">✕</button>
-    ${prevHint}
   </div>`;
 }
 

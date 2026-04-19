@@ -912,6 +912,31 @@
       <textarea id="suggestionInput" rows="3" placeholder="改善点やバグ報告を書いてください" data-i18n-ph="ph_suggestion" style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--border);font-size:14px;resize:vertical"></textarea>
       <button class="btn" onclick="submitSuggestion()" style="margin-top:8px;width:100%" data-i18n="btn_submit_suggestion">送信</button>
     </div>
+
+    <div class="section-title" style="margin-top:8px">種目追加の提案</div>
+    <div class="card" style="margin-bottom:16px;padding:14px;display:flex;flex-direction:column;gap:10px">
+      <input id="exSugName" type="text" maxlength="40" placeholder="種目名（例：ケーブルフライ）" style="width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--border);font-size:14px">
+      <div style="display:flex;gap:8px">
+        <select id="exSugCat" style="flex:1;padding:10px 8px;border-radius:10px;border:2px solid var(--border);font-size:14px;background:var(--card)">
+          <option value="胸">胸</option>
+          <option value="背中">背中</option>
+          <option value="脚">脚</option>
+          <option value="肩">肩</option>
+          <option value="腕">腕</option>
+          <option value="体幹">体幹</option>
+          <option value="有酸素">有酸素</option>
+        </select>
+        <select id="exSugType" style="flex:1;padding:10px 8px;border-radius:10px;border:2px solid var(--border);font-size:14px;background:var(--card)">
+          <option value="weight">重量あり</option>
+          <option value="bodyweight">自重</option>
+          <option value="time">タイム</option>
+          <option value="cardio">有酸素</option>
+        </select>
+      </div>
+      <textarea id="exSugNote" rows="2" placeholder="補足・参考動画URLなど（任意）" style="width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--border);font-size:14px;resize:vertical"></textarea>
+      <button class="btn" onclick="submitExerciseSuggestion()" style="width:100%">提案する</button>
+    </div>
+
     <div id="suggestionList"></div>
   </div>
 
@@ -1218,30 +1243,35 @@
 const PRESET_EXERCISES = [
   {id:'p_bench', name:'ベンチプレス', nameEn:'Bench Press', cat:'胸', catEn:'Chest', type:'weight'},
   {id:'p_inc_bench', name:'インクラインベンチプレス', nameEn:'Incline Bench Press', cat:'胸', catEn:'Chest', type:'weight'},
-  {id:'p_db_bench', name:'ダンベルベンチプレス', nameEn:'Dumbbell Bench Press', cat:'胸', catEn:'Chest', type:'weight'},
-  {id:'p_db_fly', name:'ダンベルフライ', nameEn:'Dumbbell Fly', cat:'胸', catEn:'Chest', type:'weight'},
+  {id:'p_db_bench', name:'ダンベルベンチプレス', nameEn:'Dumbbell Bench Press', cat:'胸', catEn:'Chest', type:'weight', dumbbell:true},
+  {id:'p_db_fly', name:'ダンベルフライ', nameEn:'Dumbbell Fly', cat:'胸', catEn:'Chest', type:'weight', dumbbell:true},
   {id:'p_pushup', name:'腕立て伏せ', nameEn:'Push-up', cat:'胸', catEn:'Chest', type:'bodyweight'},
   {id:'p_dead', name:'デッドリフト', nameEn:'Deadlift', cat:'背中', catEn:'Back', type:'weight'},
   {id:'p_pullup', name:'懸垂', nameEn:'Pull-up', cat:'背中', catEn:'Back', type:'bodyweight'},
   {id:'p_lat', name:'ラットプルダウン', nameEn:'Lat Pulldown', cat:'背中', catEn:'Back', type:'weight'},
   {id:'p_row', name:'ベントオーバーロウ', nameEn:'Bent-Over Row', cat:'背中', catEn:'Back', type:'weight'},
-  {id:'p_db_row', name:'ダンベルロウ', nameEn:'Dumbbell Row', cat:'背中', catEn:'Back', type:'weight'},
+  {id:'p_db_row', name:'ダンベルロウ', nameEn:'Dumbbell Row', cat:'背中', catEn:'Back', type:'weight', dumbbell:true},
   {id:'p_squat', name:'スクワット', nameEn:'Squat', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_bulgarian', name:'ブルガリアンスクワット', nameEn:'Bulgarian Split Squat', cat:'脚', catEn:'Legs', type:'weight'},
+  {id:'p_db_bulgarian', name:'ダンベルブルガリアンスクワット', nameEn:'Dumbbell Bulgarian Split Squat', cat:'脚', catEn:'Legs', type:'weight', dumbbell:true},
+  {id:'p_db_lunge', name:'ダンベルランジ', nameEn:'Dumbbell Lunge', cat:'脚', catEn:'Legs', type:'weight', dumbbell:true},
   {id:'p_leg_press', name:'レッグプレス', nameEn:'Leg Press', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_leg_ext', name:'レッグエクステンション', nameEn:'Leg Extension', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_leg_curl', name:'レッグカール', nameEn:'Leg Curl', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_lunge', name:'ランジ', nameEn:'Lunge', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_calf', name:'カーフレイズ', nameEn:'Calf Raise', cat:'脚', catEn:'Legs', type:'weight'},
   {id:'p_sh_press', name:'ショルダープレス', nameEn:'Shoulder Press', cat:'肩', catEn:'Shoulders', type:'weight'},
-  {id:'p_side_raise', name:'サイドレイズ', nameEn:'Side Raise', cat:'肩', catEn:'Shoulders', type:'weight'},
-  {id:'p_front_raise', name:'フロントレイズ', nameEn:'Front Raise', cat:'肩', catEn:'Shoulders', type:'weight'},
-  {id:'p_rear_raise', name:'リアレイズ', nameEn:'Rear Raise', cat:'肩', catEn:'Shoulders', type:'weight'},
+  {id:'p_db_sh_press', name:'ダンベルショルダープレス', nameEn:'Dumbbell Shoulder Press', cat:'肩', catEn:'Shoulders', type:'weight', dumbbell:true},
+  {id:'p_side_raise', name:'サイドレイズ', nameEn:'Side Raise', cat:'肩', catEn:'Shoulders', type:'weight', dumbbell:true},
+  {id:'p_front_raise', name:'フロントレイズ', nameEn:'Front Raise', cat:'肩', catEn:'Shoulders', type:'weight', dumbbell:true},
+  {id:'p_rear_raise', name:'リアレイズ', nameEn:'Rear Raise', cat:'肩', catEn:'Shoulders', type:'weight', dumbbell:true},
   {id:'p_curl', name:'アームカール', nameEn:'Arm Curl', cat:'腕', catEn:'Arms', type:'weight'},
+  {id:'p_db_curl', name:'ダンベルカール', nameEn:'Dumbbell Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_ez_curl', name:'イージーバーカール', nameEn:'EZ-Bar Curl', cat:'腕', catEn:'Arms', type:'weight'},
-  {id:'p_incline_curl', name:'インクラインダンベルカール', nameEn:'Incline Dumbbell Curl', cat:'腕', catEn:'Arms', type:'weight'},
-  {id:'p_hammer', name:'ハンマーカール', nameEn:'Hammer Curl', cat:'腕', catEn:'Arms', type:'weight'},
+  {id:'p_incline_curl', name:'インクラインダンベルカール', nameEn:'Incline Dumbbell Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
+  {id:'p_hammer', name:'ハンマーカール', nameEn:'Hammer Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_tri_ext', name:'トライセプスエクステンション', nameEn:'Triceps Extension', cat:'腕', catEn:'Arms', type:'weight'},
+  {id:'p_db_tri_ext', name:'ダンベルトライセップスエクステンション', nameEn:'Dumbbell Triceps Extension', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_french', name:'フレンチプレス', nameEn:'French Press', cat:'腕', catEn:'Arms', type:'weight'},
   {id:'p_cable_tri', name:'ケーブルトライセップスエクステンション', nameEn:'Cable Triceps Extension', cat:'腕', catEn:'Arms', type:'weight'},
   {id:'p_dips', name:'ディップス', nameEn:'Dips', cat:'腕', catEn:'Arms', type:'bodyweight'},
@@ -1895,6 +1925,9 @@ function streakDaysAgo() {
   return Math.round((new Date(today) - new Date(state.lastWorkoutDate)) / 86400000);
 }
 
+function isDumbbell(exerciseId) { return !!findExercise(exerciseId)?.dumbbell; }
+function volMult(exerciseId) { return isDumbbell(exerciseId) ? 2 : 1; }
+
 function computeTodayStats(userState) {
   const today = todayStr();
   let volume = 0;
@@ -1908,7 +1941,7 @@ function computeTodayStats(userState) {
           distance += Number(s.distance) || 0;
           duration += Number(s.durationMin) || 0;
         } else if (s.weight != null && s.reps != null) {
-          volume += (Number(s.weight) || 0) * (Number(s.reps) || 0);
+          volume += volMult(s.exerciseId) * (Number(s.weight) || 0) * (Number(s.reps) || 0);
         }
       });
     } else if (w.type === 'cardio') {
@@ -2088,7 +2121,7 @@ function openExerciseHistory(exerciseId) {
   } else {
     $('ehBody').innerHTML = statusHtml + chartHtml + sessions.slice(0, 10).map(sess => {
       const top = getTopSet(sess.sets);
-      const vol = sess.sets.reduce((a,s)=>a + (Number(s.weight)||0)*(Number(s.reps)||0), 0);
+      const vol = sess.sets.reduce((a,s)=>a + volMult(s.exerciseId)*(Number(s.weight)||0)*(Number(s.reps)||0), 0);
       const setsHtml = sess.sets.map((s,i) => {
         if (ex?.type === 'cardio') {
           const parts = [];
@@ -2618,7 +2651,7 @@ function renderHistItem(w) {
         }
         if (ex?.type === 'time') return `${s.reps}${t('unit_sec')}`;
         if (ex?.type === 'bodyweight') return `${s.reps}${t('unit_reps')}`;
-        const v = (Number(s.weight)||0) * (Number(s.reps)||0);
+        const v = volMult(g.exerciseId) * (Number(s.weight)||0) * (Number(s.reps)||0);
         totalVolume += v;
         return `${displayWStr(s.weight)}×${s.reps}`;
       }).join(', ');
@@ -2683,7 +2716,7 @@ async function renderRanking() {
   (allWorkouts || []).forEach(w => {
     const uid = w.user_id;
     if (w.type === 'strength') {
-      const vol = (w.sets || []).reduce((s, st) => s + (Number(st.weight)||0) * (Number(st.reps)||0), 0);
+      const vol = (w.sets || []).reduce((s, st) => s + volMult(st.exerciseId) * (Number(st.weight)||0) * (Number(st.reps)||0), 0);
       cumVol[uid] = (cumVol[uid] || 0) + vol;
     }
     if (w.type === 'cardio' && w.distance) cumDist[uid] = (cumDist[uid] || 0) + Number(w.distance);
@@ -3233,7 +3266,7 @@ async function showBattleDetail(battleId) {
       const filtered = (ws || []).filter(w => w.user_id === uid && uids.has(w.user_id));
       let val = 0;
       if (battle.metric === 'workouts') val = filtered.length;
-      else filtered.forEach(w => { (w.sets || []).forEach(s => { if (s.weight && s.reps) val += s.weight * s.reps; else if (s.reps) val += s.reps; }); });
+      else filtered.forEach(w => { (w.sets || []).forEach(s => { if (s.weight && s.reps) val += volMult(s.exerciseId) * s.weight * s.reps; else if (s.reps) val += s.reps; }); });
       return { name: p.username, avatar: p.avatar || '🐻', val };
     }).sort((a, b) => b.val - a.val);
   }
@@ -3436,10 +3469,11 @@ function openConfig(ex, existing, cb) {
     $('cfgWeight').value = displayW(existing?.defaultWeight ?? 0);
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'bodyweight') {
-    wRow.style.display = 'none';
+    wRow.style.display = '';
     rRow.style.display = 'none';
     sRow.style.display = '';
     hint.textContent = t('cfg_hint_bw');
+    $('cfgWeight').value = displayW(existing?.defaultWeight ?? 0);
     $('cfgSets').value = existing?.defaultSets ?? 3;
   } else if (ex.type === 'time') {
     wRow.style.display = 'none';
@@ -3507,6 +3541,7 @@ function saveConfig() {
   if (configType === 'weight') {
     cfg.defaultWeight = weight;
   } else if (configType === 'bodyweight') {
+    cfg.defaultWeight = weight;
   } else if (configType === 'time') {
     cfg.timerSec = reps;
   } else if (configType === 'cardio') {
@@ -3586,7 +3621,6 @@ function startRoutine(routineId) {
             weight = prev[i].weight ?? weight;
             reps = prev[i].reps ?? reps;
           }
-          if (ex?.type === 'bodyweight') weight = 0;
           sets.push({ weight, reps });
         }
       }
@@ -3717,10 +3751,11 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   }
   const isBW = ex.type === 'bodyweight';
   const isTime = ex.type === 'time';
+  const isDB = !!ex.dumbbell;
   const wStep = weightUnit === 'lbs' ? 1 : 0.25;
-  const weightField = !isBW && !isTime ? `
+  const weightField = (!isBW && !isTime) || isBW ? `
     <div class="stepper">
-      <span class="lbl">${wUnit()}</span>
+      <span class="lbl">${isDB ? '片方' : wUnit()}</span>
       <input class="dial-input" type="number" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
@@ -4397,6 +4432,23 @@ async function submitSuggestion() {
   if (error) { toast('Error: ' + (error.message || 'unknown')); return; }
   input.value = '';
   toast(t('suggestion_submitted'));
+  loadSuggestions();
+}
+
+async function submitExerciseSuggestion() {
+  const name = $('exSugName').value.trim();
+  const cat = $('exSugCat').value;
+  const type = $('exSugType').value;
+  const note = $('exSugNote').value.trim();
+  if (!name) { toast('種目名を入力してください'); return; }
+  if (!rateLimit('exSuggestion', 10000)) { toast(t('rate_limited')); return; }
+  const typeLabel = { weight:'重量あり', bodyweight:'自重', time:'タイム', cardio:'有酸素' }[type] || type;
+  const body = `[種目提案] ${name}｜${cat}｜${typeLabel}${note ? '\n' + note : ''}`;
+  const { error } = await sb.from('suggestions').insert({ user_id: state.user.id, body: truncate(body, MAX_SUGGESTION_LEN) });
+  if (error) { toast('Error: ' + (error.message || 'unknown')); return; }
+  $('exSugName').value = '';
+  $('exSugNote').value = '';
+  toast('提案を送信しました！');
   loadSuggestions();
 }
 

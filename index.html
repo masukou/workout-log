@@ -162,6 +162,41 @@
     display: flex; justify-content: space-between; align-items: center;
     margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
   }
+  /* Duolingo-style weekly calendar */
+  .week-cal {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+    gap: 4px;
+  }
+  .week-day {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .week-day-lbl {
+    font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.02em;
+  }
+  .week-day-circle {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900;
+  }
+  .week-day-circle.done {
+    background: var(--primary); color: #fff;
+  }
+  .week-day-circle.missed {
+    background: #e8f4fd; color: #5aadda;
+    font-size: 18px;
+  }
+  .week-day-circle.today-empty {
+    border: 2.5px solid var(--border); background: transparent; color: var(--muted);
+    font-size: 12px;
+  }
+  .week-day-circle.future {
+    border: 2px dashed var(--border); background: transparent;
+  }
+  .week-day-circle.today-done {
+    background: var(--primary); color: #fff;
+    box-shadow: 0 0 0 3px rgba(255,107,53,0.25);
+  }
 
   .routine-card {
     background: var(--primary);
@@ -877,6 +912,7 @@
           <div id="streakNum" style="font-size:11px;font-weight:800;color:var(--muted)"></div>
         </div>
       </div>
+      <div id="weekCal" class="week-cal" style="display:none"></div>
       <div id="hpRow" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div id="sgLabel" style="font-size:12px;font-weight:700;text-align:center"></div>
       </div>
@@ -1969,6 +2005,49 @@ function calDaysAgo() {
   return Math.round((new Date(todayStr()) - new Date(state.lastWorkoutDate)) / 86400000);
 }
 
+function renderWeekCal() {
+  const el = $('weekCal');
+  if (!el || !state) return;
+  if (state.totalWorkouts === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Find Sunday of current week (week starts Sunday)
+  const dow = today.getDay(); // 0=Sun … 6=Sat
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - dow);
+
+  const workoutDates = new Set((state.workouts || []).map(w => w.date));
+  const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+  el.innerHTML = dayLabels.map((lbl, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const isFuture = d > today;
+    const isToday = d.getTime() === today.getTime();
+    const done = workoutDates.has(ds);
+
+    let circleClass, inner;
+    if (done && isToday) {
+      circleClass = 'today-done'; inner = '✓';
+    } else if (done) {
+      circleClass = 'done'; inner = '✓';
+    } else if (isFuture) {
+      circleClass = 'future'; inner = '';
+    } else if (isToday) {
+      circleClass = 'today-empty'; inner = '?';
+    } else {
+      circleClass = 'missed'; inner = '🥶';
+    }
+    return `<div class="week-day">
+      <div class="week-day-lbl">${lbl}</div>
+      <div class="week-day-circle ${circleClass}">${inner}</div>
+    </div>`;
+  }).join('');
+}
+
 function isDumbbell(exerciseId) { return !!findExercise(exerciseId)?.dumbbell; }
 function volMult(exerciseId) { return isDumbbell(exerciseId) ? 2 : 1; }
 
@@ -2566,43 +2645,34 @@ function render() {
     badge.style.display = 'none';
     hpRow.style.display = 'none';
   } else if (dAgo >= 3 || state.streak === 0) {
-    // 3日以上やってない or ストリーク途切れ → 泣きマーク
     m.textContent = '😢';
     sub.textContent = t('mascot_lost_main');
     main.textContent = t('mascot_lost_sub');
-    $('streakIcons').textContent = '😢';
-    $('streakNum').textContent = '';
-    badge.style.display = 'flex';
+    badge.style.display = 'none';
     hpRow.style.display = 'none';
   } else if (dAgo === 2) {
-    // 2日やってない → 🥶🥶 警告
     m.textContent = '😰';
     sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
     main.textContent = t('mascot_warning_sub');
-    $('streakIcons').textContent = '🥶🥶';
-    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
-    badge.style.display = 'flex';
+    badge.style.display = 'none';
     hpRow.style.display = 'block';
     sgLabel.innerHTML = `<span style="color:var(--danger)">⚠️ ${currentLang === 'en' ? 'Work out NOW or your streak breaks!' : '今日やらないとストリークが途切れます！'}</span>`;
   } else if (dAgo === 1) {
-    // 昨日やって今日まだ → 🥶 1個
     m.textContent = '🐻';
     sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
     main.textContent = currentLang === 'en' ? 'Keep going!' : 'まだ余裕あり';
-    $('streakIcons').textContent = '🥶';
-    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
-    badge.style.display = 'flex';
+    badge.style.display = 'none';
     hpRow.style.display = 'none';
   } else {
-    // 今日やった → 😊
     m.textContent = '🔥';
     sub.textContent = currentLang === 'en' ? 'You\'re on fire!' : 'やったね！';
     main.textContent = t('mascot_done_main');
-    $('streakIcons').textContent = '😊';
-    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
-    badge.style.display = 'flex';
+    badge.style.display = 'none';
     hpRow.style.display = 'none';
   }
+
+  // Weekly calendar (Duolingo-style)
+  renderWeekCal();
 
   // Draft banner
   checkDraft();

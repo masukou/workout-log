@@ -1859,6 +1859,7 @@ const DEFAULT_USER_STATE = () => ({
   streak: 0,
   maxStreak: 0,
   lastWorkoutDate: null,
+  lastWorkoutAt: null,
   totalWorkouts: 0,
   routines: [],
   customExercises: [],
@@ -1937,13 +1938,13 @@ async function saveState() {
     streak: state.streak,
     max_streak: state.maxStreak,
     last_workout_date: state.lastWorkoutDate,
+    last_workout_at: state.lastWorkoutAt,
   }).eq('id', currentUserId);
 }
 
 function checkNewDay() {
   if (!state) return;
-  // Streak breaks only after 2 consecutive days without a workout
-  if (state.lastWorkoutDate && streakDaysAgo() >= 3) state.streak = 0;
+  if (streakHoursAgo() >= 48) state.streak = 0;
   saveState();
 }
 
@@ -1951,10 +1952,13 @@ function didToday() {
   return state && state.lastWorkoutDate === todayStr();
 }
 
-function streakDaysAgo() {
-  if (!state?.lastWorkoutDate) return 99;
-  const today = todayStr();
-  return Math.round((new Date(today) - new Date(state.lastWorkoutDate)) / 86400000);
+function streakHoursAgo() {
+  if (!state?.lastWorkoutAt) {
+    // fallback: convert date-only to hours
+    if (!state?.lastWorkoutDate) return 999;
+    return (Date.now() - new Date(state.lastWorkoutDate).getTime()) / 3600000;
+  }
+  return (Date.now() - new Date(state.lastWorkoutAt).getTime()) / 3600000;
 }
 
 function isDumbbell(exerciseId) { return !!findExercise(exerciseId)?.dumbbell; }
@@ -2235,6 +2239,7 @@ async function enterApp() {
     streak: profile.streak || 0,
     maxStreak: profile.max_streak || 0,
     lastWorkoutDate: profile.last_workout_date,
+    lastWorkoutAt: profile.last_workout_at || null,
     isPrivate: profile.is_private || false,
     createdAt: profile.created_at?.slice(0, 10),
     totalWorkouts: (workouts || []).length,
@@ -2544,7 +2549,7 @@ function render() {
   const hpRow   = $('hpRow');
   const sgHearts = $('sgHearts');
   const sgLabel  = $('sgLabel');
-  const dAgo    = streakDaysAgo();
+  const hAgo    = streakHoursAgo();
   const H = '<span style="color:#ff4b4b">♥</span>';
   const E = '<span style="color:#ddd">♥</span>';
 
@@ -2555,21 +2560,21 @@ function render() {
     sub.innerHTML = streakBig;
     hpRow.style.display = 'flex';
 
-    if (dAgo === 0) {
+    if (hAgo < 24) {
       m.textContent = '🔥';
       main.textContent = t('mascot_done_main');
       sgHearts.innerHTML = H + H + H;
       sgLabel.innerHTML  = `<span style="color:var(--primary)">${currentLang === 'en' ? '✓ HP Full!' : '✓ HP全回復！'}</span>`;
-    } else if (dAgo === 1) {
+    } else if (hAgo < 36) {
       m.textContent = '🐻';
-      main.textContent = currentLang === 'en' ? '1 grace day remaining' : 'あと1日猶予あり';
+      main.textContent = currentLang === 'en' ? 'Keep it up!' : 'いい調子！';
       sgHearts.innerHTML = H + H + E;
-      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1' : 'HP -1 · あと1日'}</span>`;
-    } else if (dAgo === 2) {
+      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1' : 'HP -1 · まだ余裕あり'}</span>`;
+    } else {
       m.textContent = '😰';
       main.textContent = t('mascot_warning_sub');
       sgHearts.innerHTML = H + E + E;
-      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Do it now!' : '⚠️ HP -2 · 今日やらないと途切れます！'}</span>`;
+      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Do it now!' : '⚠️ HP -2 · 記録しないと途切れます！'}</span>`;
     }
   } else if (state.totalWorkouts > 0) {
     m.textContent = '😢';
@@ -4400,13 +4405,12 @@ async function commitWorkout(w) {
     state.workouts.push(w);
     const today = todayStr();
     if (state.lastWorkoutDate !== today) {
-      const d = state.lastWorkoutDate
-        ? Math.round((new Date(today) - new Date(state.lastWorkoutDate)) / 86400000)
-        : 99;
-      if (d >= 1 && d <= 2) state.streak++;
+      const h = streakHoursAgo();
+      if (h < 48) state.streak++;
       else state.streak = 1;
       if (state.streak > state.maxStreak) state.maxStreak = state.streak;
       state.lastWorkoutDate = today;
+      state.lastWorkoutAt = new Date().toISOString();
     }
   } else {
     await sb.from('workouts').update(dbRow).eq('id', w.id);

@@ -872,10 +872,9 @@
           <div id="mascotSub"></div>
           <div id="mascotMain">今日も一緒にがんばろう!</div>
         </div>
-        <div id="streakBadge" style="display:none;flex-direction:column;align-items:center;flex-shrink:0">
-          <div id="streakFlame" style="font-size:32px;line-height:1">🔥</div>
-          <div id="streakNum" style="font-size:20px;font-weight:900;line-height:1.2;color:#ff6b35"></div>
-          <div id="streakUnit" style="font-size:10px;font-weight:700;color:var(--muted)">日</div>
+        <div id="streakBadge" style="display:none;flex-direction:column;align-items:center;flex-shrink:0;gap:2px">
+          <div id="streakIcons" style="font-size:30px;line-height:1;letter-spacing:2px"></div>
+          <div id="streakNum" style="font-size:11px;font-weight:800;color:var(--muted)"></div>
         </div>
       </div>
       <div id="hpRow" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
@@ -1965,6 +1964,11 @@ function streakHoursAgo() {
   return (Date.now() - new Date(state.lastWorkoutAt).getTime()) / 3600000;
 }
 
+function calDaysAgo() {
+  if (!state?.lastWorkoutDate) return 99;
+  return Math.round((new Date(todayStr()) - new Date(state.lastWorkoutDate)) / 86400000);
+}
+
 function isDumbbell(exerciseId) { return !!findExercise(exerciseId)?.dumbbell; }
 function volMult(exerciseId) { return isDumbbell(exerciseId) ? 2 : 1; }
 
@@ -2546,55 +2550,57 @@ function render() {
   const todayStats = computeTodayStats(state);
   $('hToday').textContent = formatTodayShort(todayStats);
 
-  // Mascot + streak card (Duolingo style)
-  const m      = $('mascot');
-  const main   = $('mascotMain');
-  const sub    = $('mascotSub');
-  const hpRow  = $('hpRow');
+  // Mascot + streak card
+  const m       = $('mascot');
+  const main    = $('mascotMain');
+  const sub     = $('mascotSub');
+  const hpRow   = $('hpRow');
   const sgLabel = $('sgLabel');
-  const badge  = $('streakBadge');
-  const hAgo   = streakHoursAgo();
+  const badge   = $('streakBadge');
+  const dAgo    = calDaysAgo();
 
-  if (state.streak > 0) {
-    $('streakNum').textContent = state.streak;
-    $('streakUnit').textContent = currentLang === 'en' ? 'day' : '日';
-    badge.style.display = 'flex';
-
-    if (hAgo < 24) {
-      m.textContent = '🔥';
-      sub.textContent = currentLang === 'en' ? 'You\'re on fire!' : 'やったね！';
-      main.textContent = t('mascot_done_main');
-      $('streakFlame').textContent = '🔥';
-      $('streakNum').style.color = '#ff6b35';
-      hpRow.style.display = 'none';
-    } else if (hAgo < 36) {
-      m.textContent = '🐻';
-      sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
-      main.textContent = currentLang === 'en' ? 'Keep going!' : 'まだ余裕あり';
-      $('streakFlame').textContent = '🔥';
-      $('streakNum').style.color = '#ff9600';
-      hpRow.style.display = 'block';
-      sgLabel.innerHTML = `<span style="color:#ff9600">⏳ ${currentLang === 'en' ? 'Work out soon to keep your streak!' : 'そろそろ記録しないとストリークが危ない！'}</span>`;
-    } else {
-      m.textContent = '😰';
-      sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
-      main.textContent = t('mascot_warning_sub');
-      $('streakFlame').textContent = '🥶';
-      $('streakNum').style.color = 'var(--danger)';
-      hpRow.style.display = 'block';
-      sgLabel.innerHTML = `<span style="color:var(--danger)">⚠️ ${currentLang === 'en' ? 'Streak ends in less than 12h!' : '残り12時間以内！今すぐ記録して！'}</span>`;
-    }
-  } else if (state.totalWorkouts > 0) {
-    m.textContent = '😢';
-    sub.textContent = t('mascot_lost_main');
-    main.textContent = t('mascot_lost_sub');
-    badge.style.display = 'none';
-    hpRow.style.display = 'none';
-  } else {
+  if (state.totalWorkouts === 0) {
     m.textContent = '🐻';
     sub.textContent = t('mascot_go_main');
     main.textContent = t('mascot_first');
     badge.style.display = 'none';
+    hpRow.style.display = 'none';
+  } else if (dAgo >= 3 || state.streak === 0) {
+    // 3日以上やってない or ストリーク途切れ → 泣きマーク
+    m.textContent = '😢';
+    sub.textContent = t('mascot_lost_main');
+    main.textContent = t('mascot_lost_sub');
+    $('streakIcons').textContent = '😢';
+    $('streakNum').textContent = '';
+    badge.style.display = 'flex';
+    hpRow.style.display = 'none';
+  } else if (dAgo === 2) {
+    // 2日やってない → 🥶🥶 警告
+    m.textContent = '😰';
+    sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
+    main.textContent = t('mascot_warning_sub');
+    $('streakIcons').textContent = '🥶🥶';
+    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
+    badge.style.display = 'flex';
+    hpRow.style.display = 'block';
+    sgLabel.innerHTML = `<span style="color:var(--danger)">⚠️ ${currentLang === 'en' ? 'Work out NOW or your streak breaks!' : '今日やらないとストリークが途切れます！'}</span>`;
+  } else if (dAgo === 1) {
+    // 昨日やって今日まだ → 🥶 1個
+    m.textContent = '🐻';
+    sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
+    main.textContent = currentLang === 'en' ? 'Keep going!' : 'まだ余裕あり';
+    $('streakIcons').textContent = '🥶';
+    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
+    badge.style.display = 'flex';
+    hpRow.style.display = 'none';
+  } else {
+    // 今日やった → 😊
+    m.textContent = '🔥';
+    sub.textContent = currentLang === 'en' ? 'You\'re on fire!' : 'やったね！';
+    main.textContent = t('mascot_done_main');
+    $('streakIcons').textContent = '😊';
+    $('streakNum').textContent = `${state.streak}${currentLang === 'en' ? 'd' : '日'}`;
+    badge.style.display = 'flex';
     hpRow.style.display = 'none';
   }
 

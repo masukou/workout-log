@@ -872,10 +872,14 @@
           <div id="mascotSub"></div>
           <div id="mascotMain">今日も一緒にがんばろう!</div>
         </div>
+        <div id="streakBadge" style="display:none;flex-direction:column;align-items:center;flex-shrink:0">
+          <div id="streakFlame" style="font-size:32px;line-height:1">🔥</div>
+          <div id="streakNum" style="font-size:20px;font-weight:900;line-height:1.2;color:#ff6b35"></div>
+          <div id="streakUnit" style="font-size:10px;font-weight:700;color:var(--muted)">日</div>
+        </div>
       </div>
-      <div class="hp-row" id="hpRow" style="display:none">
-        <div id="sgHearts" style="font-size:24px;letter-spacing:3px;line-height:1"></div>
-        <div id="sgLabel" style="font-size:11px;font-weight:700"></div>
+      <div id="hpRow" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div id="sgLabel" style="font-size:12px;font-weight:700;text-align:center"></div>
       </div>
     </div>
 
@@ -2542,49 +2546,55 @@ function render() {
   const todayStats = computeTodayStats(state);
   $('hToday').textContent = formatTodayShort(todayStats);
 
-  // Mascot + HP card
-  const m       = $('mascot');
-  const main    = $('mascotMain');
-  const sub     = $('mascotSub');
-  const hpRow   = $('hpRow');
-  const sgHearts = $('sgHearts');
-  const sgLabel  = $('sgLabel');
-  const hAgo    = streakHoursAgo();
-  const H = '<span style="color:#ff4b4b">♥</span>';
-  const E = '<span style="color:#ddd">♥</span>';
+  // Mascot + streak card (Duolingo style)
+  const m      = $('mascot');
+  const main   = $('mascotMain');
+  const sub    = $('mascotSub');
+  const hpRow  = $('hpRow');
+  const sgLabel = $('sgLabel');
+  const badge  = $('streakBadge');
+  const hAgo   = streakHoursAgo();
 
   if (state.streak > 0) {
-    const streakBig = currentLang === 'en'
-      ? `<span style="font-size:26px">${state.streak}</span>-day streak`
-      : `<span style="font-size:26px">${state.streak}</span>日継続中`;
-    sub.innerHTML = streakBig;
-    hpRow.style.display = 'flex';
+    $('streakNum').textContent = state.streak;
+    $('streakUnit').textContent = currentLang === 'en' ? 'day' : '日';
+    badge.style.display = 'flex';
 
     if (hAgo < 24) {
       m.textContent = '🔥';
+      sub.textContent = currentLang === 'en' ? 'You\'re on fire!' : 'やったね！';
       main.textContent = t('mascot_done_main');
-      sgHearts.innerHTML = H + H + H;
-      sgLabel.innerHTML  = `<span style="color:var(--primary)">${currentLang === 'en' ? '✓ HP Full!' : '✓ HP全回復！'}</span>`;
+      $('streakFlame').textContent = '🔥';
+      $('streakNum').style.color = '#ff6b35';
+      hpRow.style.display = 'none';
     } else if (hAgo < 36) {
       m.textContent = '🐻';
-      main.textContent = currentLang === 'en' ? 'Keep it up!' : 'いい調子！';
-      sgHearts.innerHTML = H + H + E;
-      sgLabel.innerHTML  = `<span style="color:#ff9600">${currentLang === 'en' ? 'HP -1' : 'HP -1 · まだ余裕あり'}</span>`;
+      sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
+      main.textContent = currentLang === 'en' ? 'Keep going!' : 'まだ余裕あり';
+      $('streakFlame').textContent = '🔥';
+      $('streakNum').style.color = '#ff9600';
+      hpRow.style.display = 'block';
+      sgLabel.innerHTML = `<span style="color:#ff9600">⏳ ${currentLang === 'en' ? 'Work out soon to keep your streak!' : 'そろそろ記録しないとストリークが危ない！'}</span>`;
     } else {
       m.textContent = '😰';
+      sub.textContent = currentLang === 'en' ? `${state.streak}-day streak` : `${state.streak}日継続中`;
       main.textContent = t('mascot_warning_sub');
-      sgHearts.innerHTML = H + E + E;
-      sgLabel.innerHTML  = `<span style="color:var(--danger)">${currentLang === 'en' ? '⚠️ HP -2 · Do it now!' : '⚠️ HP -2 · 記録しないと途切れます！'}</span>`;
+      $('streakFlame').textContent = '🥶';
+      $('streakNum').style.color = 'var(--danger)';
+      hpRow.style.display = 'block';
+      sgLabel.innerHTML = `<span style="color:var(--danger)">⚠️ ${currentLang === 'en' ? 'Streak ends in less than 12h!' : '残り12時間以内！今すぐ記録して！'}</span>`;
     }
   } else if (state.totalWorkouts > 0) {
     m.textContent = '😢';
     sub.textContent = t('mascot_lost_main');
     main.textContent = t('mascot_lost_sub');
+    badge.style.display = 'none';
     hpRow.style.display = 'none';
   } else {
     m.textContent = '🐻';
     sub.textContent = t('mascot_go_main');
     main.textContent = t('mascot_first');
+    badge.style.display = 'none';
     hpRow.style.display = 'none';
   }
 

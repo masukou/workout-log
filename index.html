@@ -299,6 +299,7 @@
     align-items: center;
     gap: 6px;
     margin-top: 8px;
+    min-width: 0;
   }
   .set-row {
     display: flex;
@@ -308,6 +309,8 @@
     background: #fff;
     border-radius: 10px;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
   .set-num { font-weight: 800; color: var(--muted); width: 16px; font-size: 11px; flex-shrink: 0; }
   .stepper {
@@ -326,7 +329,7 @@
     font-weight: 900;
     -moz-appearance: textfield;
     background: var(--card);
-    touch-action: none;
+    touch-action: manipulation;
   }
   .stepper input::-webkit-outer-spin-button,
   .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -380,34 +383,40 @@
     font-size: 12px;
   }
 
-  /* ===== Timer modal ===== */
-  .modal {
+  /* ===== Mini floating timer ===== */
+  .mini-timer {
     position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 200;
+    top: 0; left: 0; right: 0;
+    z-index: 300;
     display: none;
-    align-items: center;
     justify-content: center;
-    padding: 20px;
+    pointer-events: none;
   }
-  .modal.active { display: flex; }
-  .modal-box {
-    background: #fff;
-    border-radius: 20px;
-    padding: 24px 20px;
-    width: 100%;
-    max-width: 340px;
-    text-align: center;
+  .mini-timer.active { display: flex; }
+  .mini-timer-box {
+    background: var(--secondary);
+    color: #fff;
+    border-radius: 0 0 18px 18px;
+    padding: 6px 18px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: all;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
   }
-  .timer-display {
-    font-size: 80px;
-    font-weight: 900;
-    color: var(--secondary);
-    margin: 16px 0;
-    font-variant-numeric: tabular-nums;
+  .mini-timer-label {
+    font-size: 11px; font-weight: 700; opacity: 0.85;
+    max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .timer-label { font-size: 14px; font-weight: 700; color: var(--muted); }
+  .mini-timer-display {
+    font-size: 30px; font-weight: 900;
+    font-variant-numeric: tabular-nums; min-width: 72px; text-align: center;
+  }
+  .mini-timer-btn {
+    background: rgba(255,255,255,0.25); border: none; border-radius: 8px;
+    color: #fff; font-size: 18px; width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
 
   /* ===== Routine editor ===== */
   .exercise-picker {
@@ -1245,14 +1254,12 @@
 </div>
 
 <!-- ============ TIMER MODAL ============ -->
-<div class="modal" id="timerModal">
-  <div class="modal-box">
-    <div class="timer-label" id="tmLabel">タイマー</div>
-    <div class="timer-display" id="tmDisplay">00:00</div>
-    <div class="row" style="display:flex;gap:8px">
-      <button class="btn secondary small" onclick="timerToggle()" id="tmToggle" style="flex:1" data-i18n="timer_pause">一時停止</button>
-      <button class="btn secondary small" onclick="timerStop()" style="flex:1" data-i18n="timer_close">閉じる</button>
-    </div>
+<div class="mini-timer" id="timerModal">
+  <div class="mini-timer-box">
+    <span class="mini-timer-label" id="tmLabel">タイマー</span>
+    <span class="mini-timer-display" id="tmDisplay">00:00</span>
+    <button class="mini-timer-btn" onclick="timerToggle()" id="tmToggle">⏸</button>
+    <button class="mini-timer-btn" onclick="timerStop()">✕</button>
   </div>
 </div>
 
@@ -3930,13 +3937,13 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
     const inner = mode === 'distance'
       ? `<div class="stepper">
           <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'distance',-0.5)">−</button>
-          <input class="dial-input" type="number" value="${s.distance||0}" step="0.5" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="distance" data-step="0.5" data-min="0" onchange="setVal(${exIdx},${setIdx},'distance',this.value)">
+          <input class="dial-input" type="number" inputmode="decimal" value="${s.distance||0}" step="0.5" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="distance" data-step="0.5" data-min="0" onchange="setVal(${exIdx},${setIdx},'distance',this.value)">
           <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'distance',0.5)">+</button>
           <span class="lbl">km</span>
         </div>`
       : `<div class="stepper">
           <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'durationMin',-1)">−</button>
-          <input class="dial-input" type="number" value="${s.durationMin||0}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="durationMin" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'durationMin',this.value)">
+          <input class="dial-input" type="number" inputmode="numeric" value="${s.durationMin||0}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="durationMin" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'durationMin',this.value)">
           <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'durationMin',1)">+</button>
           <span class="lbl">${currentLang==='en'?'min':'分'}</span>
         </div>`;
@@ -3950,23 +3957,24 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   }
   const isBW = ex.type === 'bodyweight';
   const isTime = ex.type === 'time';
+  const isWeight = ex.type === 'weight';
   const isDB = !!ex.dumbbell;
   const wStep = weightUnit === 'lbs' ? 1 : 0.25;
   const weightField = (!isBW && !isTime) || isBW ? `
     <div class="stepper">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'weight',${-wStep})">−</button>
-      <input class="dial-input" type="number" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
+      <input class="dial-input" type="number" inputmode="decimal" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'weight',${wStep})">+</button>
       <span class="lbl">${isDB ? '片方' : wUnit()}</span>
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
-  const repsField = `
+  const repsField = !isWeight ? `
     <div class="stepper">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'reps',-1)">−</button>
-      <input class="dial-input" type="number" value="${s.reps}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="reps" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
+      <input class="dial-input" type="number" inputmode="numeric" value="${s.reps}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="reps" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'reps',1)">+</button>
       <span class="lbl">${repsLbl}</span>
-    </div>`;
+    </div>` : '';
   return `<div class="set-wrap">
     <div class="set-row">
       <div class="set-num">${setIdx+1}</div>
@@ -3984,46 +3992,6 @@ function copyExercise(idx) {
   renderRecord();
 }
 
-// ---- Dial drag (vertical swipe to change value) ----
-let _dial = null;
-document.addEventListener('touchstart', e => {
-  const el = e.target.closest('.dial-input');
-  if (!el) return;
-  e.preventDefault(); // キーボード・スクロール抑制
-  _dial = {
-    el,
-    startY: e.touches[0].clientY,
-    startVal: parseFloat(el.value) || 0,
-    step: parseFloat(el.dataset.step) || 1,
-    min: parseFloat(el.dataset.min) || 0,
-    exIdx: parseInt(el.dataset.exidx),
-    setIdx: parseInt(el.dataset.setidx),
-    field: el.dataset.field,
-    isWeight: el.dataset.type === 'weight',
-    moved: false,
-  };
-}, { passive: false });
-document.addEventListener('touchmove', e => {
-  if (!_dial) return;
-  e.preventDefault();
-  const dy = _dial.startY - e.touches[0].clientY;
-  const steps = Math.round(dy / 12);
-  const newVal = Math.max(_dial.min, Math.round((_dial.startVal + steps * _dial.step) / _dial.step) * _dial.step);
-  if (newVal !== parseFloat(_dial.el.value)) {
-    _dial.el.value = newVal;
-    _dial.moved = true;
-    if (!isNaN(_dial.exIdx)) {
-      if (_dial.isWeight) setValW(_dial.exIdx, _dial.setIdx, newVal);
-      else setVal(_dial.exIdx, _dial.setIdx, _dial.field, newVal);
-    } else {
-      _dial.el.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  }
-}, { passive: false });
-document.addEventListener('touchend', () => {
-  if (_dial?.moved && !isNaN(_dial.exIdx)) renderRecord();
-  _dial = null;
-});
 
 function stepSet(ex, si, field, d) {
   const s = recordCtx.items[ex].sets[si];
@@ -4557,26 +4525,30 @@ async function deleteWorkout(id) {
 // ===================================================================
 // TIMER
 // ===================================================================
+let timerEndTime = null;
 function openTimer(sec, label) {
   timerTotal = sec;
   timerRemain = sec;
   timerPaused = false;
+  timerEndTime = Date.now() + sec * 1000;
   $('tmLabel').textContent = label || t('timer_label');
-  $('tmToggle').textContent = t('timer_pause');
+  $('tmToggle').textContent = '⏸';
   updateTimerDisplay();
   $('timerModal').classList.add('active');
   clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (timerPaused) return;
-    timerRemain--;
-    updateTimerDisplay();
-    if (timerRemain <= 0) {
-      clearInterval(timerInterval);
-      try { navigator.vibrate?.(400); } catch(e){}
-      toast(t('t_timer_done'));
-      setTimeout(() => $('timerModal').classList.remove('active'), 1000);
-    }
-  }, 1000);
+  timerInterval = setInterval(tickTimer, 500);
+}
+function tickTimer() {
+  if (timerPaused) return;
+  timerRemain = Math.max(0, Math.round((timerEndTime - Date.now()) / 1000));
+  updateTimerDisplay();
+  if (timerRemain <= 0) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    try { navigator.vibrate?.(400); } catch(e){}
+    toast(t('t_timer_done'));
+    setTimeout(() => $('timerModal').classList.remove('active'), 2000);
+  }
 }
 function updateTimerDisplay() {
   const m = Math.floor(timerRemain/60).toString().padStart(2,'0');
@@ -4585,12 +4557,27 @@ function updateTimerDisplay() {
 }
 function timerToggle() {
   timerPaused = !timerPaused;
-  $('tmToggle').textContent = timerPaused ? t('timer_resume') : t('timer_pause');
+  if (!timerPaused) timerEndTime = Date.now() + timerRemain * 1000;
+  $('tmToggle').textContent = timerPaused ? '▶' : '⏸';
 }
 function timerStop() {
   clearInterval(timerInterval);
+  timerInterval = null;
   $('timerModal').classList.remove('active');
 }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && timerInterval && !timerPaused) {
+    timerRemain = Math.max(0, Math.round((timerEndTime - Date.now()) / 1000));
+    updateTimerDisplay();
+    if (timerRemain <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      try { navigator.vibrate?.(400); } catch(e){}
+      toast(t('t_timer_done'));
+      $('timerModal').classList.remove('active');
+    }
+  }
+});
 
 // ===================================================================
 // SCREEN HELPERS

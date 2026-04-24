@@ -383,6 +383,27 @@
     font-size: 12px;
   }
 
+  /* ===== Config modal overlay ===== */
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal.active { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 340px;
+    text-align: center;
+  }
+
   /* ===== Mini floating timer ===== */
   .mini-timer {
     position: fixed;

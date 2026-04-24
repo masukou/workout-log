@@ -4435,46 +4435,56 @@ async function saveFree() {
 // ===================================================================
 // WORKOUT COMMIT / EDIT / DELETE
 // ===================================================================
+let _saving = false;
 async function commitWorkout(w) {
-  const existingIdx = state.workouts.findIndex(x => x.id === w.id);
-  const isNew = existingIdx < 0;
+  if (_saving) return;
+  _saving = true;
+  const saveBtns = document.querySelectorAll('[data-i18n="btn_save_workout"],[data-i18n="btn_record"]');
+  saveBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+  try {
+    const existingIdx = state.workouts.findIndex(x => x.id === w.id);
+    const isNew = existingIdx < 0;
 
-  const dbRow = {
-    user_id: currentUserId,
-    date: w.date,
-    type: w.type,
-    title: w.title,
-    routine_id: null,
-    note: w.note || null,
-    distance: w.distance || null,
-    duration_min: w.durationMin || null,
-    sets: w.sets || [],
-    gps_verified: w.gpsVerified || false,
-  };
+    const dbRow = {
+      user_id: currentUserId,
+      date: w.date,
+      type: w.type,
+      title: w.title,
+      routine_id: null,
+      note: w.note || null,
+      distance: w.distance || null,
+      duration_min: w.durationMin || null,
+      sets: w.sets || [],
+      gps_verified: w.gpsVerified || false,
+    };
 
-  if (isNew) {
-    const { data } = await sb.from('workouts').insert(dbRow).select().single();
-    if (data) w.id = data.id;
-    w.likes = [];
-    state.workouts.push(w);
-    const today = todayStr();
-    if (state.lastWorkoutDate !== today) {
-      const h = streakHoursAgo();
-      if (h < 48) state.streak++;
-      else state.streak = 1;
-      if (state.streak > state.maxStreak) state.maxStreak = state.streak;
-      state.lastWorkoutDate = today;
-      state.lastWorkoutAt = new Date().toISOString();
+    if (isNew) {
+      const { data } = await sb.from('workouts').insert(dbRow).select().single();
+      if (data) w.id = data.id;
+      w.likes = [];
+      state.workouts.push(w);
+      const today = todayStr();
+      if (state.lastWorkoutDate !== today) {
+        const h = streakHoursAgo();
+        if (h < 48) state.streak++;
+        else state.streak = 1;
+        if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+        state.lastWorkoutDate = today;
+        state.lastWorkoutAt = new Date().toISOString();
+      }
+    } else {
+      await sb.from('workouts').update(dbRow).eq('id', w.id);
+      w.likes = state.workouts[existingIdx]?.likes || [];
+      state.workouts[existingIdx] = w;
     }
-  } else {
-    await sb.from('workouts').update(dbRow).eq('id', w.id);
-    w.likes = state.workouts[existingIdx]?.likes || [];
-    state.workouts[existingIdx] = w;
+    editingWorkoutId = null;
+    await saveState();
+    render();
+    toast(isNew ? t('t_recorded') : t('t_updated'));
+  } finally {
+    _saving = false;
+    saveBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
   }
-  editingWorkoutId = null;
-  await saveState();
-  render();
-  toast(isNew ? t('t_recorded') : t('t_updated'));
 }
 
 function editWorkout(id) {

@@ -2383,6 +2383,8 @@ async function enterApp() {
   render();
   subscribeToLikes();
   loadNotifications();
+  subscribeToInvites();
+  loadPendingInvites();
 }
 
 let notifications = [];
@@ -3172,41 +3174,149 @@ function renderGroups() {
   </div>`).join('');
 }
 
-function showGroupActions() {
-  const choice = prompt(
-    `1: ${t('group_create')}\n2: ${t('group_join')}\n\n${currentLang === 'ja' ? '番号を入力' : 'Enter number'}`,
-    '1'
-  );
-  if (choice === '1') createGroup();
-  else if (choice === '2') joinGroup();
+function closeModal(id) { $(id)?.classList.remove('active'); }
+
+function showGroupActions() { $('groupActionModal').classList.add('active'); }
+
+function showCreateGroupForm() {
+  closeModal('groupActionModal');
+  $('groupNameInput').value = '';
+  $('groupCreateModal').classList.add('active');
+  setTimeout(() => $('groupNameInput').focus(), 100);
 }
 
-async function createGroup() {
-  const name = prompt(t('group_name_prompt'));
-  if (!name || !name.trim()) return;
-  if (name.trim().length > MAX_GROUP_NAME_LEN) { toast(t('name_too_long')); return; }
-  if (hasProfanity(name.trim())) { toast(t('name_profanity')); return; }
+function showJoinGroupForm() {
+  closeModal('groupActionModal');
+  $('groupCodeInput').value = '';
+  $('groupJoinModal').classList.add('active');
+  setTimeout(() => $('groupCodeInput').focus(), 100);
+}
+
+async function createGroupFromModal() {
+  const name = $('groupNameInput').value.trim();
+  if (!name) return toast('グループ名を入力してください');
+  if (name.length > MAX_GROUP_NAME_LEN) { toast(t('name_too_long')); return; }
+  if (hasProfanity(name)) { toast(t('name_profanity')); return; }
   const icons = ['⚡','🔥','💪','🏆','🎯','⭐','🦁','🐉','🦅','🐺'];
   const icon = icons[Math.floor(Math.random() * icons.length)];
   const { data: group, error } = await sb.from('groups').insert({
-    name: name.trim(), icon, created_by: currentUserId,
+    name, icon, created_by: currentUserId,
   }).select().single();
-  if (error || !group) { toast('Error: ' + (error?.message || 'unknown')); console.error(error); return; }
+  if (error || !group) { toast('Error: ' + (error?.message || 'unknown')); return; }
   await sb.from('group_members').insert({ group_id: group.id, user_id: currentUserId, role: 'admin' });
+  closeModal('groupCreateModal');
   toast(t('group_created'));
   loadGroups();
 }
 
-async function joinGroup() {
-  const code = prompt(t('group_code_prompt'));
-  if (!code || !code.trim()) return;
-  const { data: group } = await sb.from('groups').select('*').eq('invite_code', code.trim()).maybeSingle();
+async function joinGroupFromModal() {
+  const code = $('groupCodeInput').value.trim();
+  if (!code) return;
+  const { data: group } = await sb.from('groups').select('*').eq('invite_code', code).maybeSingle();
   if (!group) { toast(t('group_not_found')); return; }
   const { data: existing } = await sb.from('group_members').select('id').eq('group_id', group.id).eq('user_id', currentUserId).maybeSingle();
   if (existing) { toast(t('group_already_member')); return; }
   await sb.from('group_members').insert({ group_id: group.id, user_id: currentUserId });
+  closeModal('groupJoinModal');
   toast(t('group_joined'));
   loadGroups();
+}
+
+// ---- Invite by username ----
+let inviteTargetGroupId = null;
+
+function openInviteModal(groupId) {
+  inviteTargetGroupId = groupId;
+  $('inviteUsernameInput').value = '';
+  $('inviteSearchResult').innerHTML = '';
+  $('inviteUserModal').classList.add('active');
+  setTimeout(() => $('inviteUsernameInput').focus(), 100);
+}
+
+async function searchUserToInvite() {
+  const username = $('inviteUsernameInput').value.trim();
+  if (!username) return;
+  const el = $('inviteSearchResult');
+  el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:8px">検索中...</div>';
+  const { data: profiles } = await sb.from('profiles').select('id,username,avatar').ilike('username', `%${username}%`).limit(5);
+  if (!profiles || !profiles.length) {
+    el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:8px">ユーザーが見つかりません</div>';
+    return;
+  }
+  el.innerHTML = profiles.filter(p => p.id !== currentUserId).map(p =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border-radius:10px;margin-bottom:6px">
+      <div style="font-size:24px">${p.avatar || '🐻'}</div>
+      <div style="flex:1;font-weight:700;font-size:14px">${escapeHtml(p.username)}</div>
+      <button class="btn small" style="padding:6px 12px;font-size:12px" onclick="sendGroupInvite('${p.id}','${escapeHtml(p.username)}')">招待</button>
+    </div>`
+  ).join('') || '<div style="color:var(--muted);text-align:center;padding:8px">ユーザーが見つかりません</div>';
+}
+
+async function sendGroupInvite(inviteeId, inviteeName) {
+  if (!inviteTargetGroupId) return;
+  const { data: existing } = await sb.from('group_members').select('id').eq('group_id', inviteTargetGroupId).eq('user_id', inviteeId).maybeSingle();
+  if (existing) { toast('すでにメンバーです'); return; }
+  const { data: alreadyInvited } = await sb.from('group_invites').select('id').eq('group_id', inviteTargetGroupId).eq('invitee_id', inviteeId).eq('status', 'pending').maybeSingle();
+  if (alreadyInvited) { toast('すでに招待済みです'); return; }
+  const { error } = await sb.from('group_invites').insert({
+    group_id: inviteTargetGroupId,
+    inviter_id: currentUserId,
+    invitee_id: inviteeId,
+  });
+  if (error) { toast('エラー: ' + error.message); return; }
+  closeModal('inviteUserModal');
+  toast(`${inviteeName}さんに招待を送りました！`);
+}
+
+// ---- Invite receiving ----
+let pendingInvite = null;
+let inviteSubscription = null;
+
+function subscribeToInvites() {
+  if (inviteSubscription) inviteSubscription.unsubscribe();
+  inviteSubscription = sb.channel('invites-' + currentUserId)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'group_invites',
+      filter: `invitee_id=eq.${currentUserId}`,
+    }, async (payload) => {
+      await showPendingInvite(payload.new);
+    })
+    .subscribe();
+}
+
+async function loadPendingInvites() {
+  const { data: invites } = await sb.from('group_invites').select('*')
+    .eq('invitee_id', currentUserId).eq('status', 'pending')
+    .order('created_at', { ascending: true }).limit(1);
+  if (invites && invites.length) await showPendingInvite(invites[0]);
+}
+
+async function showPendingInvite(invite) {
+  if ($('inviteNotifModal')?.classList.contains('active')) return;
+  pendingInvite = invite;
+  const [{ data: group }, { data: inviter }] = await Promise.all([
+    sb.from('groups').select('name,icon').eq('id', invite.group_id).single(),
+    sb.from('profiles').select('username').eq('id', invite.inviter_id).single(),
+  ]);
+  const groupName = group ? `${group.icon} ${group.name}` : '不明なグループ';
+  const inviterName = inviter?.username || '???';
+  $('inviteNotifText').textContent = `${inviterName}さんからグループ「${groupName}」に招待されています。参加しますか？`;
+  $('inviteNotifModal').classList.add('active');
+}
+
+async function respondToInvite(accept) {
+  if (!pendingInvite) return;
+  closeModal('inviteNotifModal');
+  await sb.from('group_invites').update({ status: accept ? 'accepted' : 'declined' }).eq('id', pendingInvite.id);
+  if (accept) {
+    await sb.from('group_members').insert({ group_id: pendingInvite.group_id, user_id: currentUserId });
+    toast('グループに参加しました！');
+    loadGroups();
+  } else {
+    toast('招待を断りました');
+  }
+  pendingInvite = null;
+  setTimeout(loadPendingInvites, 500);
 }
 
 function copyInviteCode(code) {
@@ -3265,9 +3375,10 @@ async function showGroupDetail(groupId) {
     <div style="text-align:center;padding:12px 0">
       <div style="font-size:48px">${group.icon}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${t('group_invite_code')}: <b>${group.invite_code}</b></div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
-        <button class="btn secondary small" style="padding:8px 16px;font-size:13px" onclick="copyInviteCode('${group.invite_code}')">📋 ${currentLang==='en'?'Copy Code':'コードをコピー'}</button>
-        ${navigator.share ? `<button class="btn secondary small" style="padding:8px 16px;font-size:13px" onclick="shareInviteCode('${group.name}','${group.invite_code}')">🔗 ${currentLang==='en'?'Share':'シェア'}</button>` : ''}
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+        <button class="btn secondary small" style="padding:8px 14px;font-size:13px" onclick="copyInviteCode('${group.invite_code}')">📋 コードをコピー</button>
+        ${navigator.share ? `<button class="btn secondary small" style="padding:8px 14px;font-size:13px" onclick="shareInviteCode('${group.name}','${group.invite_code}')">🔗 シェア</button>` : ''}
+        <button class="btn small" style="padding:8px 14px;font-size:13px" onclick="openInviteModal('${group.id}')">👥 メンバーを招待</button>
       </div>
     </div>
     <div class="section-title">${t('group_ranking')}</div>
@@ -5056,5 +5167,65 @@ document.addEventListener('click', (e) => {
   }
 })();
 </script>
+
+<!-- ============ GROUP ACTION MODAL ============ -->
+<div class="modal" id="groupActionModal">
+  <div class="modal-box" style="max-width:300px">
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px;text-align:center">グループ</div>
+    <button class="btn" style="width:100%;margin-bottom:10px" onclick="showCreateGroupForm()">🏋️ 新しいグループを作成</button>
+    <button class="btn secondary" style="width:100%;margin-bottom:10px" onclick="showJoinGroupForm()">🔑 招待コードで参加</button>
+    <button class="btn secondary" style="width:100%;color:var(--muted)" onclick="closeModal('groupActionModal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ GROUP CREATE MODAL ============ -->
+<div class="modal" id="groupCreateModal">
+  <div class="modal-box" style="max-width:300px;text-align:left">
+    <div style="font-size:16px;font-weight:800;margin-bottom:14px">🏋️ グループを作成</div>
+    <input class="input" id="groupNameInput" placeholder="グループ名（例：チームA）" maxlength="30" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button class="btn secondary small" style="flex:1" onclick="closeModal('groupCreateModal')">キャンセル</button>
+      <button class="btn small" style="flex:1" onclick="createGroupFromModal()">作成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GROUP JOIN MODAL ============ -->
+<div class="modal" id="groupJoinModal">
+  <div class="modal-box" style="max-width:300px;text-align:left">
+    <div style="font-size:16px;font-weight:800;margin-bottom:14px">🔑 招待コードで参加</div>
+    <input class="input" id="groupCodeInput" placeholder="招待コードを入力" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button class="btn secondary small" style="flex:1" onclick="closeModal('groupJoinModal')">キャンセル</button>
+      <button class="btn small" style="flex:1" onclick="joinGroupFromModal()">参加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ INVITE USER MODAL ============ -->
+<div class="modal" id="inviteUserModal">
+  <div class="modal-box" style="max-width:320px;text-align:left">
+    <div style="font-size:16px;font-weight:800;margin-bottom:14px">👥 メンバーを招待</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input class="input" id="inviteUsernameInput" placeholder="ユーザー名を入力" style="flex:1;margin-bottom:0">
+      <button class="btn small" onclick="searchUserToInvite()">検索</button>
+    </div>
+    <div id="inviteSearchResult" style="min-height:48px"></div>
+    <button class="btn secondary small" style="width:100%;margin-top:10px" onclick="closeModal('inviteUserModal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ INVITE NOTIFICATION MODAL ============ -->
+<div class="modal" id="inviteNotifModal">
+  <div class="modal-box" style="max-width:300px;text-align:center">
+    <div style="font-size:36px;margin-bottom:10px">📬</div>
+    <div id="inviteNotifText" style="font-size:14px;font-weight:700;line-height:1.6;margin-bottom:18px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn secondary small" style="flex:1" onclick="respondToInvite(false)">断る</button>
+      <button class="btn small" style="flex:1" onclick="respondToInvite(true)">参加する</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

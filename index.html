@@ -1369,6 +1369,7 @@ const PRESET_EXERCISES = [
   {id:'p_ez_curl', name:'イージーバーカール', nameEn:'EZ-Bar Curl', cat:'腕', catEn:'Arms', type:'weight'},
   {id:'p_incline_curl', name:'インクラインダンベルカール', nameEn:'Incline Dumbbell Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_hammer', name:'ハンマーカール', nameEn:'Hammer Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
+  {id:'p_inc_hammer', name:'インクラインハンマーカール', nameEn:'Incline Hammer Curl', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_tri_ext', name:'トライセプスエクステンション', nameEn:'Triceps Extension', cat:'腕', catEn:'Arms', type:'weight'},
   {id:'p_db_tri_ext', name:'ダンベルトライセップスエクステンション', nameEn:'Dumbbell Triceps Extension', cat:'腕', catEn:'Arms', type:'weight', dumbbell:true},
   {id:'p_french', name:'フレンチプレス', nameEn:'French Press', cat:'腕', catEn:'Arms', type:'weight'},
@@ -3208,6 +3209,18 @@ async function joinGroup() {
   loadGroups();
 }
 
+function copyInviteCode(code) {
+  navigator.clipboard.writeText(code).then(() => toast(currentLang==='en'?'Copied!':'コピーしました！'));
+}
+async function shareInviteCode(groupName, code) {
+  try {
+    await navigator.share({
+      title: currentLang==='en' ? `Join ${groupName}` : `${groupName}に参加しよう`,
+      text: currentLang==='en' ? `Use code: ${code}` : `招待コード: ${code}`,
+    });
+  } catch(e) { if (e.name !== 'AbortError') copyInviteCode(code); }
+}
+
 let currentGroupId = null;
 
 async function showGroupDetail(groupId) {
@@ -3252,6 +3265,10 @@ async function showGroupDetail(groupId) {
     <div style="text-align:center;padding:12px 0">
       <div style="font-size:48px">${group.icon}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${t('group_invite_code')}: <b>${group.invite_code}</b></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <button class="btn secondary small" style="padding:8px 16px;font-size:13px" onclick="copyInviteCode('${group.invite_code}')">📋 ${currentLang==='en'?'Copy Code':'コードをコピー'}</button>
+        ${navigator.share ? `<button class="btn secondary small" style="padding:8px 16px;font-size:13px" onclick="shareInviteCode('${group.name}','${group.invite_code}')">🔗 ${currentLang==='en'?'Share':'シェア'}</button>` : ''}
+      </div>
     </div>
     <div class="section-title">${t('group_ranking')}</div>
   `;
@@ -3978,24 +3995,24 @@ function renderSetRow(ex, item, exIdx, setIdx, s, prev) {
   }
   const isBW = ex.type === 'bodyweight';
   const isTime = ex.type === 'time';
-  const isWeight = ex.type === 'weight';
   const isDB = !!ex.dumbbell;
   const wStep = weightUnit === 'lbs' ? 1 : 0.25;
+  const wLbl = isBW ? (currentLang==='en'?'+kg':'加重') : (isDB ? '片方' : wUnit());
   const weightField = (!isBW && !isTime) || isBW ? `
     <div class="stepper">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'weight',${-wStep})">−</button>
       <input class="dial-input" type="number" inputmode="decimal" value="${displayWStr(s.weight)}" step="${wStep}" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="weight" data-type="weight" data-step="${wStep}" data-min="0" onchange="setValW(${exIdx},${setIdx},this.value)">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'weight',${wStep})">+</button>
-      <span class="lbl">${isDB ? '片方' : wUnit()}</span>
+      <span class="lbl">${wLbl}</span>
     </div>` : '';
   const repsLbl = isTime ? (currentLang==='en'?'sec':'秒') : (currentLang==='en'?'reps':'回');
-  const repsField = !isWeight ? `
+  const repsField = `
     <div class="stepper">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'reps',-1)">−</button>
       <input class="dial-input" type="number" inputmode="numeric" value="${s.reps}" step="1" data-exidx="${exIdx}" data-setidx="${setIdx}" data-field="reps" data-step="1" data-min="0" onchange="setVal(${exIdx},${setIdx},'reps',this.value)">
       <button class="step-btn" onclick="stepSet(${exIdx},${setIdx},'reps',1)">+</button>
       <span class="lbl">${repsLbl}</span>
-    </div>` : '';
+    </div>`;
   return `<div class="set-wrap">
     <div class="set-row">
       <div class="set-num">${setIdx+1}</div>

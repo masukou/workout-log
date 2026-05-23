@@ -974,13 +974,6 @@
 
   <!-- ============ FRIENDS ============ -->
   <div class="view" id="viewFriends">
-    <div class="section-title" data-i18n="sec_everyone">みんなの記録</div>
-    <div class="seg" id="rankSeg">
-      <button class="active" data-sort="today" data-i18n="seg_today">今日</button>
-      <button data-sort="streak" data-i18n="seg_streak">🔥 ストリーク</button>
-      <button data-sort="volume" data-i18n="seg_volume">💪 今日のボリューム</button>
-    </div>
-    <div id="rankList"></div>
     <div class="section-title">
       <span data-i18n="sec_groups">グループ</span>
       <button class="link" onclick="showGroupActions()" data-i18n="group_actions">+ 作成 / 参加</button>
@@ -2858,72 +2851,8 @@ function iconFor(type) {
 }
 
 async function renderRanking() {
+  // ランキング機能は廃止。フレンズ画面はタイムライン（友達の記録＋いいね）のみ表示
   const { data: profiles } = await sb.from('profiles').select('*');
-  const today = todayStr();
-  const [{ data: todayWorkouts }, { data: allWorkouts }] = await Promise.all([
-    sb.from('workouts').select('user_id,date,type,sets,distance,duration_min').eq('date', today),
-    sb.from('workouts').select('user_id,type,sets,distance'),
-  ]);
-
-  // cumulative stats per user
-  const cumVol = {}, cumDist = {};
-  (allWorkouts || []).forEach(w => {
-    const uid = w.user_id;
-    if (w.type === 'strength') {
-      const vol = (w.sets || []).reduce((s, st) => s + volMult(st.exerciseId) * (Number(st.weight)||0) * (Number(st.reps)||0), 0);
-      cumVol[uid] = (cumVol[uid] || 0) + vol;
-    }
-    if (w.type === 'cardio' && w.distance) cumDist[uid] = (cumDist[uid] || 0) + Number(w.distance);
-  });
-
-  const list = (profiles || []).filter(p => p.id === currentUserId || (!isBlocked(p.id) && !p.is_private)).map(p => {
-    const uWorkouts = (todayWorkouts || []).filter(w => w.user_id === p.id);
-    const fakeState = { workouts: uWorkouts.map(w => ({
-      date: w.date, type: w.type, sets: w.sets || [],
-      distance: w.distance ? Number(w.distance) : null,
-      durationMin: w.duration_min ? Number(w.duration_min) : null,
-    }))};
-    const todayStats = computeTodayStats(fakeState);
-    return {
-      id: p.id, name: p.username, avatar: p.avatar || '🐻',
-      streak: p.streak || 0, maxStreak: p.max_streak || 0,
-      todayStats, didToday: uWorkouts.length > 0 || p.last_workout_date === today,
-      totalVolume: cumVol[p.id] || 0,
-      totalDist: cumDist[p.id] || 0,
-    };
-  });
-  list.sort((a,b) => {
-    if (rankSort === 'today') return (b.didToday?1:0) - (a.didToday?1:0) || b.streak - a.streak;
-    if (rankSort === 'streak') return b.streak - a.streak || b.maxStreak - a.maxStreak;
-    if (rankSort === 'volume') return b.todayStats.volume - a.todayStats.volume;
-    return 0;
-  });
-  const c = $('rankList');
-  if (!list.length) { c.innerHTML = `<div class="empty-state">${t('empty_no_users')}</div>`; return; }
-  c.innerHTML = list.map((u,i) => {
-    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
-    const statusHtml = u.didToday
-      ? `<div class="rank-status done">${t('did_today')}</div>`
-      : `<div class="rank-status not">${t('not_yet')}</div>`;
-    const todayShort = formatTodayShort(u.todayStats);
-    const dayUnit = currentLang === 'en' ? 'd' : '日';
-    const metaParts = [`🔥${u.streak}${dayUnit}`];
-    if (todayShort) metaParts.push(todayShort);
-    const cumParts = [];
-    if (u.totalVolume > 0) cumParts.push(`💪 ${formatVolume(u.totalVolume)}`);
-    if (u.totalDist > 0) cumParts.push(`🏃 ${u.totalDist.toFixed(1)}km`);
-    const cumLine = cumParts.length ? `<div class="rank-cum">${cumParts.join(' · ')}</div>` : '';
-    return `<div class="rank-item ${u.id===currentUserId?'me':''}" onclick="showUserDetail('${u.id}')">
-      <div class="rank-num ${i<3?'top':''}">${medal}</div>
-      <div class="rank-avatar">${avatarHtml(u.avatar, 36)}</div>
-      <div class="rank-info">
-        <div class="rank-name">${escapeHtml(u.name)}${u.id===currentUserId?t('you_suffix'):''}</div>
-        <div class="rank-meta">${metaParts.join(' · ')}</div>
-        ${cumLine}
-      </div>
-      ${statusHtml}
-    </div>`;
-  }).join('');
   renderTimeline(profiles);
 }
 
@@ -5133,13 +5062,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-$('rankSeg').addEventListener('click', e => {
-  if (e.target.tagName !== 'BUTTON') return;
-  document.querySelectorAll('#rankSeg button').forEach(b => b.classList.remove('active'));
-  e.target.classList.add('active');
-  rankSort = e.target.dataset.sort;
-  renderRanking();
-});
+// ランキングのソートタブ（rankSeg）は廃止
 
 
 // ===================================================================

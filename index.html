@@ -2005,7 +2005,8 @@ async function saveState() {
 
 function checkNewDay() {
   if (!state) return;
-  if (streakHoursAgo() >= 48) state.streak = 0;
+  // 暦日基準・1日猶予：2日連続で休む（3日以上空き）とストリーク途切れ
+  if (calDaysAgo() >= 3) state.streak = 0;
   saveState();
 }
 
@@ -4543,8 +4544,9 @@ async function commitWorkout(w) {
       state.workouts.push(w);
       const today = todayStr();
       if (state.lastWorkoutDate !== today) {
-        const h = streakHoursAgo();
-        if (h < 48) state.streak++;
+        // 暦日基準・1日猶予：前回が昨日(gap1) or 1日空け(gap2)なら継続、2日以上空き(gap3+)でリセット
+        const gap = calDaysAgo(); // lastWorkoutDate更新前に算出
+        if (gap <= 2) state.streak++;
         else state.streak = 1;
         if (state.streak > state.maxStreak) state.maxStreak = state.streak;
         state.lastWorkoutDate = today;
